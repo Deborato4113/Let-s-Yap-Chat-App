@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/*
+ * Theming: everything in the UI reads these custom properties (never raw
+ * hex), so switching themes is just swapping which block below is active.
+ * Two independent axes:
+ *   - data-theme on <html>: the accent color preset (classic/ocean/sunset/orchid)
+ *   - data-mode on <html>: "light" (default) or "dark"
+ * See lib/ThemeContext.js for the switcher logic.
+ */
+:root {
+  --background: #f0f2f5;
+  --foreground: #111b21;
+
+  --wa-panel: #ffffff;
+  --wa-panel-header: #f0f2f5;
+  --wa-sidebar-hover: #f5f6f6;
+  --wa-active: #e9edef;
+  --wa-border: #e9edef;
+  --wa-border-light: #d1d7db;
+  --wa-green: #00a884;
+  --wa-green-dark: #008069;
+  --wa-teal-light: #d9fdd3;
+  --wa-bubble-out: #d9fdd3;
+  --wa-bubble-in: #ffffff;
+  --wa-chat-bg: #efeae2;
+  --wa-text-primary: #111b21;
+  --wa-text-secondary: #667781;
+  --wa-text-muted: #8696a0;
+  --wa-icon: #54656f;
+  --wa-blue-tick: #53bdeb;
+  --wa-danger: #f15c6d;
+  --wa-system-bg: #fff3d6;
+  --wa-overlay: rgba(0, 0, 0, 0.4);
+}
+
+/* --- Accent color presets (light mode) --- */
+:root[data-theme="ocean"] {
+  --wa-green: #0088cc;
+  --wa-green-dark: #006ba3;
+  --wa-bubble-out: #d3ecfb;
+}
+:root[data-theme="sunset"] {
+  --wa-green: #ff7a59;
+  --wa-green-dark: #e85f3d;
+  --wa-bubble-out: #ffe4d9;
+}
+:root[data-theme="orchid"] {
+  --wa-green: #8b5cf6;
+  --wa-green-dark: #7040e0;
+  --wa-bubble-out: #ece0ff;
+}
+
+/* --- Dark mode: base surfaces/text, per accent below for the bubble tint --- */
+:root[data-mode="dark"] {
+  --background: #0b141a;
+  --foreground: #e9edef;
+
+  --wa-panel: #111b21;
+  --wa-panel-header: #202c33;
+  --wa-sidebar-hover: #202c33;
+  --wa-active: #2a3942;
+  --wa-border: #222d34;
+  --wa-border-light: #2a3942;
+  --wa-bubble-in: #202c33;
+  --wa-chat-bg: #0b141a;
+  --wa-text-primary: #e9edef;
+  --wa-text-secondary: #8696a0;
+  --wa-text-muted: #667781;
+  --wa-icon: #aebac1;
+  --wa-system-bg: #182229;
+  --wa-overlay: rgba(0, 0, 0, 0.6);
+}
+:root[data-mode="dark"]:not([data-theme]),
+:root[data-mode="dark"][data-theme="classic"] {
+  --wa-green: #00a884;
+  --wa-green-dark: #06cf9c;
+  --wa-bubble-out: #005c4b;
+}
+:root[data-mode="dark"][data-theme="ocean"] {
+  --wa-green: #53bdeb;
+  --wa-green-dark: #7fd0f2;
+  --wa-bubble-out: #0a3a52;
+}
+:root[data-mode="dark"][data-theme="sunset"] {
+  --wa-green: #ff8a68;
+  --wa-green-dark: #ffab8f;
+  --wa-bubble-out: #4a2418;
+}
+:root[data-mode="dark"][data-theme="orchid"] {
+  --wa-green: #a78bfa;
+  --wa-green-dark: #c4b5fd;
+  --wa-bubble-out: #322153;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #__next {
+  height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+:root[data-mode="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.chat-bg-pattern {
+  background-color: var(--wa-chat-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%23d9d3c7' fill-opacity='0.35'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.341 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z'/%3E%3C/g%3E%3C/svg%3E");
+}
+:root[data-mode="dark"] .chat-bg-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%23202c33' fill-opacity='0.6'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.341 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.15s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Real WhatsApp-style bubble tails (a little triangular pointer), instead of
+   just squaring off a corner. */
+.bubble-tail-out::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -8px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 10px 10px;
+  border-color: transparent transparent transparent var(--wa-bubble-out);
+}
+.bubble-tail-in::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -8px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 10px 10px 0;
+  border-color: transparent var(--wa-bubble-in) transparent transparent;
+}
+
+.typing-dot {
+  animation: typingBounce 1.2s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
