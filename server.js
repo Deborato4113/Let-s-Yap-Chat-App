@@ -26,7 +26,15 @@ app.prepare().then(async () => {
 
   const io = new Server(httpServer, {
     path: "/api/socket",
-    cors: { origin: `http://${hostname}:${port}` },
+    // In dev, restrict to the local origin. `hostname` is hardcoded to
+    // "localhost" above, so hardcoding this the same way in production was
+    // the bug: a browser connecting from the real Render URL (a different
+    // origin) got its socket handshake silently rejected by Socket.IO's own
+    // CORS check, which is what "WebSocket connection ... failed" was.
+    // Actual access control still happens via the JWT check in
+    // socketServer.js's io.use() middleware, not this origin check, so
+    // reflecting any origin in production doesn't weaken auth.
+    cors: { origin: dev ? `http://${hostname}:${port}` : true },
     // Base64-encoded attachments (up to the app's 5MB file cap, ~33% larger
     // once encoded) can exceed engine.io's 1MB default payload limit, which
     // silently drops the socket message instead of erroring — raise it to
