@@ -82,18 +82,33 @@ export default function CallModal({ call }) {
         </p>
       </div>
 
-      {isVideo && (callState === "active" || callState === "calling") && (
-        <div className="relative w-full max-w-2xl aspect-video mx-6 rounded-xl overflow-hidden bg-black/40">
-          <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
-          <video
-            ref={localVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className="absolute bottom-3 right-3 w-28 h-20 rounded-lg object-cover border-2 border-white/20"
-          />
-        </div>
-      )}
+      {/*
+        These <video> elements stay mounted at all times (for any call type/
+        state) rather than being conditionally rendered, and are only hidden
+        via CSS when not needed. Conditionally rendering them was a real bug:
+        for the person RECEIVING a call, the local camera stream gets set
+        while callState is still "ringing" - before this block would have
+        mounted - so the srcObject-binding effect ran while the ref was still
+        null and did nothing. By the time callState flipped to "active" and
+        the video tags finally mounted, `localStream`/`remoteStream` hadn't
+        changed again, so the effect never re-ran and the video stayed black.
+        Keeping the elements always in the DOM means the effect can bind the
+        stream the moment it becomes available, regardless of callState.
+      */}
+      <div
+        className={`relative w-full max-w-2xl aspect-video mx-6 rounded-xl overflow-hidden bg-black/40 ${
+          isVideo && (callState === "active" || callState === "calling") ? "" : "hidden"
+        }`}
+      >
+        <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+        <video
+          ref={localVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className="absolute bottom-3 right-3 w-28 h-20 rounded-lg object-cover border-2 border-white/20"
+        />
+      </div>
       {!isVideo && <div className="flex-1" />}
 
       <div className="flex items-center gap-6 mb-4">
