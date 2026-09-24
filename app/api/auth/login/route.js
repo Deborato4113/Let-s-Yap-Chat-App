@@ -18,6 +18,13 @@ export async function POST(req) {
     const user = rows[0];
     if (!user) return Response.json({ message: "Invalid credentials." }, { status: 401 });
 
+    if (!user.password) {
+      return Response.json(
+        { message: "This account uses Google/email sign-in. Use the \"continue with\" options below." },
+        { status: 400 }
+      );
+    }
+
     const match = await bcrypt.compare(password, user.password);
     if (!match) return Response.json({ message: "Invalid credentials." }, { status: 401 });
 

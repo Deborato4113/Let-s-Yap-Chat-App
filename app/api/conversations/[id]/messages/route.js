@@ -45,7 +45,7 @@ export async function GET(req, { params }) {
 
   rows.reverse();
   const hasMore = rows.length === PAGE_SIZE;
-  const messages = await attachReadAndDelivery(rows);
+  const messages = await attachReadAndDelivery(rows, me.id);
 
   return Response.json({ messages, hasMore });
 }

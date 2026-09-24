@@ -1,7 +1,7 @@
 "use client";
 
 import { initials } from "@/lib/utils";
-import { Users } from "lucide-react";
+import { Users, Sparkles } from "lucide-react";
 
 export default function Avatar({
   name,
@@ -9,12 +9,20 @@ export default function Avatar({
   avatarUrl = "",
   size = 44,
   isGroup = false,
+  isBot = false,
   online = false,
   showStatus = false
 }) {
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
-      {avatarUrl ? (
+      {isBot ? (
+        <div
+          className="w-full h-full rounded-full flex items-center justify-center select-none"
+          style={{ background: "linear-gradient(135deg, #4f8cff 0%, #a457f7 50%, #ff6f9c 100%)" }}
+        >
+          <Sparkles size={size * 0.5} className="text-white" fill="white" />
+        </div>
+      ) : avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={avatarUrl}

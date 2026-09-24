@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { MessageCircle, Lock, User as UserIcon } from "lucide-react";
+import FirebaseAuthButtons from "@/components/FirebaseAuthButtons";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -86,6 +87,8 @@ export default function LoginPage() {
               Create an account
             </Link>
           </p>
+
+          <FirebaseAuthButtons />
         </form>
       </div>
     </div>

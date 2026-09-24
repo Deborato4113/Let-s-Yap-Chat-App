@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(24) NOT NULL UNIQUE,
   email VARCHAR(255) NOT NULL UNIQUE,
-  password VARCHAR(255) NOT NULL,
+  password VARCHAR(255) NULL,              -- NULL for Firebase-only accounts (Google / Firebase email)
+  firebase_uid VARCHAR(128) NULL UNIQUE,   -- set when the account signed in via Firebase Auth
   name VARCHAR(40) NOT NULL,
   bio VARCHAR(140) NOT NULL DEFAULT 'Hey there! I am using Let''s Yap.',
   avatar_color VARCHAR(20) NOT NULL DEFAULT '',
@@ -12,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
   theme VARCHAR(20) NOT NULL DEFAULT 'classic',   -- accent color preset
   dark_mode TINYINT(1) NOT NULL DEFAULT 0,
   status ENUM('online', 'away', 'offline') NOT NULL DEFAULT 'offline',
+  is_bot TINYINT(1) NOT NULL DEFAULT 0,    -- the built-in "Yap AI" assistant user
   last_seen DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
@@ -62,10 +64,34 @@ CREATE TABLE IF NOT EXISTS messages (
   file_data LONGTEXT NULL,
   timestamp DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   deleted_for_everyone TINYINT(1) NOT NULL DEFAULT 0,
+  reply_to_id INT NULL,                    -- quoted message, if this is a reply
+  pinned TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
   FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (reply_to_id) REFERENCES messages(id) ON DELETE SET NULL,
   INDEX idx_conversation_timestamp (conversation_id, timestamp)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- one emoji reaction per user per message (re-reacting replaces it, like WhatsApp)
+CREATE TABLE IF NOT EXISTS message_reactions (
+  message_id INT NOT NULL,
+  user_id INT NOT NULL,
+  emoji VARCHAR(16) NOT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (message_id, user_id),
+  FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- per-user starred messages (private - not visible to the other participant)
+CREATE TABLE IF NOT EXISTS message_stars (
+  message_id INT NOT NULL,
+  user_id INT NOT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (message_id, user_id),
+  FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- who has read a message (mirrors the old Mongo `readBy` array)

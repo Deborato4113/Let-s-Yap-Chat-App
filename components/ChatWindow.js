@@ -20,16 +20,21 @@ import {
   Eraser,
   XCircle,
   Ban,
-  ShieldCheck
+  ShieldCheck,
+  X,
+  Pin,
+  Forward
 } from "lucide-react";
 import Avatar from "./Avatar";
 import MessageBubble from "./MessageBubble";
 import ImageViewer from "./ImageViewer";
 import ContactInfoPanel from "./ContactInfoPanel";
+import EmojiPicker from "./EmojiPicker";
+import ForwardModal from "./ForwardModal";
+import MessageInfoModal from "./MessageInfoModal";
 import { formatDayLabel, lastSeenLabel } from "@/lib/utils";
 import { useAudioRecorder } from "@/lib/useAudioRecorder";
 
-const EMOJIS = ["😀","😂","😍","👍","🙏","🎉","🔥","❤️","😢","😮","🙌","👏"];
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 function groupByDay(messages) {
@@ -56,6 +61,7 @@ function formatRecordTime(sec) {
 
 export default function ChatWindow({
   conversation,
+  allConversations = [],
   messages,
   onSend,
   onLoadMore,
@@ -71,7 +77,14 @@ export default function ChatWindow({
   onMute,
   onClearChat,
   onDeleteChat,
-  onToggleBlock
+  onToggleBlock,
+  onReact,
+  onTogglePin,
+  onToggleStar,
+  onForwardMessages,
+  onAskYapAI,
+  pendingAiQuote,
+  onConsumeAiQuote
 }) {
   const [text, setText] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
@@ -79,6 +92,11 @@ export default function ChatWindow({
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showContactInfo, setShowContactInfo] = useState(false);
   const [viewerMessageId, setViewerMessageId] = useState(null);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [forwardTarget, setForwardTarget] = useState(null); // array of message objects
+  const [infoTarget, setInfoTarget] = useState(null);
   const scrollRef = useRef(null);
   const mediaInputRef = useRef(null);
   const docInputRef = useRef(null);
@@ -88,6 +106,7 @@ export default function ChatWindow({
   const recorder = useAudioRecorder();
 
   const groups = useMemo(() => groupByDay(messages), [messages]);
+  const pinnedMessage = useMemo(() => [...messages].reverse().find((m) => m.pinned && !m.deletedForEveryone), [messages]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -101,6 +120,24 @@ export default function ChatWindow({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation?.id]);
+
+  // Switching conversations exits select mode / clears a stale reply draft.
+  useEffect(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setReplyingTo(null);
+  }, [conversation?.id]);
+
+  // "Yap AI" on a message's 3-dot menu switches the parent to the standing
+  // Yap AI chat and asks it to prefill the composer with a quote of that
+  // message - once it arrives here, drop it into the input and tell the
+  // parent it's been used so it doesn't reapply on a later render.
+  useEffect(() => {
+    if (!pendingAiQuote) return;
+    setText(pendingAiQuote);
+    onConsumeAiQuote && onConsumeAiQuote();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAiQuote]);
 
   function handleScroll(e) {
     if (e.target.scrollTop < 60 && hasMore) {
@@ -119,9 +156,10 @@ export default function ChatWindow({
     e?.preventDefault();
     const trimmed = text.trim();
     if (!trimmed) return;
-    onSend({ type: "text", text: trimmed });
+    onSend({ type: "text", text: trimmed, replyToId: replyingTo?.id });
     setText("");
     setShowEmoji(false);
+    setReplyingTo(null);
     onTyping(false);
   }
 
@@ -140,7 +178,8 @@ export default function ChatWindow({
       : "file";
     const reader = new FileReader();
     reader.onload = () => {
-      onSend({ type, fileData: reader.result, fileName: file.name, text: "" });
+      onSend({ type, fileData: reader.result, fileName: file.name, text: "", replyToId: replyingTo?.id });
+      setReplyingTo(null);
     };
     reader.readAsDataURL(file);
   }
@@ -163,8 +202,39 @@ export default function ChatWindow({
   async function handleStopRecording() {
     const result = await recorder.stop();
     if (result?.fileData) {
-      onSend({ type: "audio", fileData: result.fileData, fileName: "voice-message.webm", text: "" });
+      onSend({ type: "audio", fileData: result.fileData, fileName: "voice-message.webm", text: "", replyToId: replyingTo?.id });
+      setReplyingTo(null);
     }
+  }
+
+  function handleToggleSelect(messageId, forceEnter) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (forceEnter && !selectMode) {
+        next.add(messageId);
+        return next;
+      }
+      if (next.has(messageId)) next.delete(messageId);
+      else next.add(messageId);
+      return next;
+    });
+    if (forceEnter && !selectMode) setSelectMode(true);
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
+
+  function deleteSelected() {
+    if (!confirm(`Delete ${selectedIds.size} message(s) for you?`)) return;
+    selectedIds.forEach((id) => onDeleteMessage(id, false));
+    exitSelectMode();
+  }
+
+  function forwardSelected() {
+    const toForward = messages.filter((m) => selectedIds.has(m.id));
+    setForwardTarget(toForward);
   }
 
   if (!conversation) {
@@ -184,6 +254,7 @@ export default function ChatWindow({
   const label = conversation.isGroup ? conversation.groupName : conversation.peer?.name || "Unknown";
   const color = conversation.isGroup ? conversation.groupAvatarColor : conversation.peer?.avatarColor;
   const avatarUrl = conversation.isGroup ? "" : conversation.peer?.avatarUrl;
+  const isBotChat = !conversation.isGroup && !!conversation.peer?.isBot;
   const peerId = conversation.peer?.id;
   const status = peerId ? presence[peerId] : null;
   const isTyping = typingUsers.length > 0;
@@ -197,115 +268,172 @@ export default function ChatWindow({
 
   const subtitle = conversation.isGroup
     ? `${conversation.participants?.length || 0} members`
+    : isBotChat
+    ? isTyping
+      ? "typing…"
+      : "Your AI assistant"
     : conversation.isBlockedByMe
     ? "Blocked"
     : isTyping
     ? "typing…"
     : lastSeenLabel(status, conversation.peer?.lastSeen);
 
+  const forwardableConversations = allConversations.filter((c) => c.id !== conversation.id);
+
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="h-16 bg-[var(--wa-panel-header)] flex items-center justify-between px-4 border-l border-[var(--wa-border)]">
-        <button
-          onClick={() => setShowContactInfo(true)}
-          className="flex items-center gap-3 min-w-0 flex-1 text-left"
-        >
-          <ArrowLeft size={20} className="md:hidden p-0 text-[var(--wa-icon)]" onClick={(e) => { e.stopPropagation(); onBack(); }} />
-          <Avatar name={label} color={color} avatarUrl={avatarUrl} size={40} isGroup={conversation.isGroup} online={status === "online"} showStatus />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-[var(--wa-text-primary)] truncate">{label}</p>
-            <p className={`text-xs truncate ${isTyping ? "text-[var(--wa-green)]" : "text-[var(--wa-text-secondary)]"}`}>{subtitle}</p>
-          </div>
-        </button>
-
-        <div className="flex items-center gap-1 text-[var(--wa-icon)]">
-          {!conversation.isGroup && (
-            <>
-              <button
-                onClick={() => onStartCall("audio")}
-                disabled={callActive || isBlockedEitherWay}
-                title="Voice call"
-                className="p-2 rounded-full hover:bg-[var(--wa-border)] disabled:opacity-30"
-              >
-                <Phone size={19} />
-              </button>
-              <button
-                onClick={() => onStartCall("video")}
-                disabled={callActive || isBlockedEitherWay}
-                title="Video call"
-                className="p-2 rounded-full hover:bg-[var(--wa-border)] disabled:opacity-30"
-              >
-                <Video size={20} />
-              </button>
-            </>
-          )}
-          <div className="relative">
-            <button
-              onClick={() => setShowHeaderMenu((v) => !v)}
-              className="p-2 rounded-full hover:bg-[var(--wa-border)]"
-            >
-              <MoreVertical size={20} />
+      {selectMode ? (
+        <div className="h-16 bg-[var(--wa-panel-header)] flex items-center justify-between px-4 border-l border-[var(--wa-border)]">
+          <div className="flex items-center gap-3">
+            <button onClick={exitSelectMode} className="p-1 text-[var(--wa-icon)]">
+              <X size={20} />
             </button>
-            {showHeaderMenu && (
-              <div className="absolute right-0 top-10 bg-[var(--wa-panel)] shadow-lg rounded-md py-1 w-52 z-20 text-sm text-[var(--wa-text-primary)]">
+            <span className="text-sm font-medium text-[var(--wa-text-primary)]">{selectedIds.size} selected</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={forwardSelected}
+              disabled={selectedIds.size === 0}
+              className="p-2 rounded-full hover:bg-[var(--wa-border)] text-[var(--wa-icon)] disabled:opacity-30"
+              title="Forward"
+            >
+              <Forward size={20} />
+            </button>
+            <button
+              onClick={deleteSelected}
+              disabled={selectedIds.size === 0}
+              className="p-2 rounded-full hover:bg-[var(--wa-border)] text-[var(--wa-danger)] disabled:opacity-30"
+              title="Delete"
+            >
+              <Trash2 size={20} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="h-16 bg-[var(--wa-panel-header)] flex items-center justify-between px-4 border-l border-[var(--wa-border)]">
+          <button
+            onClick={() => setShowContactInfo(true)}
+            className="flex items-center gap-3 min-w-0 flex-1 text-left"
+          >
+            <ArrowLeft size={20} className="md:hidden p-0 text-[var(--wa-icon)]" onClick={(e) => { e.stopPropagation(); onBack(); }} />
+            <Avatar
+              name={label}
+              color={color}
+              avatarUrl={avatarUrl}
+              size={40}
+              isGroup={conversation.isGroup}
+              isBot={isBotChat}
+              online={status === "online"}
+              showStatus={!isBotChat}
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[var(--wa-text-primary)] truncate">{label}</p>
+              <p className={`text-xs truncate ${isTyping ? "text-[var(--wa-green)]" : "text-[var(--wa-text-secondary)]"}`}>{subtitle}</p>
+            </div>
+          </button>
+
+          <div className="flex items-center gap-1 text-[var(--wa-icon)]">
+            {!conversation.isGroup && !isBotChat && (
+              <>
                 <button
-                  onClick={() => {
-                    setShowHeaderMenu(false);
-                    setShowContactInfo(true);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-2.5"
+                  onClick={() => onStartCall("audio")}
+                  disabled={callActive || isBlockedEitherWay}
+                  title="Voice call"
+                  className="p-2 rounded-full hover:bg-[var(--wa-border)] disabled:opacity-30"
                 >
-                  <UserIcon size={16} /> {conversation.isGroup ? "Group info" : "Contact info"}
+                  <Phone size={19} />
                 </button>
-                {!conversation.isGroup && (
+                <button
+                  onClick={() => onStartCall("video")}
+                  disabled={callActive || isBlockedEitherWay}
+                  title="Video call"
+                  className="p-2 rounded-full hover:bg-[var(--wa-border)] disabled:opacity-30"
+                >
+                  <Video size={20} />
+                </button>
+              </>
+            )}
+            <div className="relative">
+              <button
+                onClick={() => setShowHeaderMenu((v) => !v)}
+                className="p-2 rounded-full hover:bg-[var(--wa-border)]"
+              >
+                <MoreVertical size={20} />
+              </button>
+              {showHeaderMenu && (
+                <div className="absolute right-0 top-10 bg-[var(--wa-panel)] shadow-lg rounded-md py-1 w-52 z-20 text-sm text-[var(--wa-text-primary)]">
                   <button
                     onClick={() => {
                       setShowHeaderMenu(false);
-                      onMute(!conversation.muted);
+                      setShowContactInfo(true);
                     }}
                     className="w-full text-left px-3 py-2 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-2.5"
                   >
-                    {conversation.muted ? <Bell size={16} /> : <BellOff size={16} />}
-                    {conversation.muted ? "Unmute notifications" : "Mute notifications"}
+                    <UserIcon size={16} /> {conversation.isGroup ? "Group info" : "Contact info"}
                   </button>
-                )}
-                <button
-                  onClick={() => {
-                    setShowHeaderMenu(false);
-                    if (confirm("Clear all messages in this chat? This only affects your view.")) onClearChat();
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-2.5"
-                >
-                  <Eraser size={16} /> Clear chat
-                </button>
-                <button
-                  onClick={() => {
-                    setShowHeaderMenu(false);
-                    if (confirm("Delete this chat? It will be removed from your chat list.")) onDeleteChat();
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-2.5 text-[var(--wa-danger)]"
-                >
-                  <XCircle size={16} /> Delete chat
-                </button>
-                {!conversation.isGroup && (
+                  {!conversation.isGroup && !isBotChat && (
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false);
+                        onMute(!conversation.muted);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-2.5"
+                    >
+                      {conversation.muted ? <Bell size={16} /> : <BellOff size={16} />}
+                      {conversation.muted ? "Unmute notifications" : "Mute notifications"}
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setShowHeaderMenu(false);
-                      onToggleBlock();
+                      if (confirm("Clear all messages in this chat? This only affects your view.")) onClearChat();
                     }}
-                    className={`w-full text-left px-3 py-2 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-2.5 ${
-                      conversation.isBlockedByMe ? "text-[var(--wa-green)]" : "text-[var(--wa-danger)]"
-                    }`}
+                    className="w-full text-left px-3 py-2 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-2.5"
                   >
-                    {conversation.isBlockedByMe ? <ShieldCheck size={16} /> : <Ban size={16} />}
-                    {conversation.isBlockedByMe ? `Unblock ${conversation.peer?.name}` : `Block ${conversation.peer?.name}`}
+                    <Eraser size={16} /> Clear chat
                   </button>
-                )}
-              </div>
-            )}
+                  <button
+                    onClick={() => {
+                      setShowHeaderMenu(false);
+                      if (confirm("Delete this chat? It will be removed from your chat list.")) onDeleteChat();
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-2.5 text-[var(--wa-danger)]"
+                  >
+                    <XCircle size={16} /> Delete chat
+                  </button>
+                  {!conversation.isGroup && !isBotChat && (
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false);
+                        onToggleBlock();
+                      }}
+                      className={`w-full text-left px-3 py-2 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-2.5 ${
+                        conversation.isBlockedByMe ? "text-[var(--wa-green)]" : "text-[var(--wa-danger)]"
+                      }`}
+                    >
+                      {conversation.isBlockedByMe ? <ShieldCheck size={16} /> : <Ban size={16} />}
+                      {conversation.isBlockedByMe ? `Unblock ${conversation.peer?.name}` : `Block ${conversation.peer?.name}`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {pinnedMessage && (
+        <button
+          onClick={() => onTogglePin(pinnedMessage.id)}
+          className="flex items-center gap-2 px-4 py-2 bg-[var(--wa-panel-header)] border-b border-[var(--wa-border)] text-left"
+          title="Unpin"
+        >
+          <Pin size={14} className="text-[var(--wa-green)] shrink-0" />
+          <span className="text-xs text-[var(--wa-text-secondary)] truncate">
+            {pinnedMessage.text || `(${pinnedMessage.type})`}
+          </span>
+        </button>
+      )}
 
       <div
         ref={scrollRef}
@@ -334,6 +462,17 @@ export default function ChatWindow({
                   senderName={m.sender?.name}
                   onDelete={onDeleteMessage}
                   onOpenMedia={(msg) => setViewerMessageId(msg.id)}
+                  currentUserId={currentUserId}
+                  onReact={onReact}
+                  onTogglePin={onTogglePin}
+                  onToggleStar={onToggleStar}
+                  onReply={setReplyingTo}
+                  onForward={(msg) => setForwardTarget([msg])}
+                  onShowInfo={setInfoTarget}
+                  onYapAI={onAskYapAI}
+                  selectMode={selectMode}
+                  selected={selectedIds.has(m.id)}
+                  onToggleSelect={handleToggleSelect}
                 />
               );
             })}
@@ -384,104 +523,115 @@ export default function ChatWindow({
           </button>
         </div>
       ) : (
-        <form onSubmit={handleSend} className="bg-[var(--wa-panel-header)] px-4 py-2.5 flex items-center gap-2 relative">
-          {showEmoji && (
-            <div className="absolute bottom-16 left-4 bg-[var(--wa-panel)] shadow-lg rounded-lg p-2 grid grid-cols-6 gap-1 z-10">
-              {EMOJIS.map((em) => (
+        <div className="bg-[var(--wa-panel-header)]">
+          {replyingTo && (
+            <div className="flex items-center gap-2 px-4 pt-2">
+              <div className="flex-1 min-w-0 flex items-center gap-2 bg-[var(--wa-panel)] rounded-lg px-3 py-1.5 border-l-4 border-[var(--wa-green)]">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-[var(--wa-green)]">
+                    {String(replyingTo.sender?.id) === String(currentUserId) ? "You" : replyingTo.sender?.name}
+                  </p>
+                  <p className="text-xs text-[var(--wa-text-secondary)] truncate">
+                    {replyingTo.text || `(${replyingTo.type})`}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setReplyingTo(null)} className="p-1 text-[var(--wa-icon)]">
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
+          <form onSubmit={handleSend} className="px-4 py-2.5 flex items-center gap-2 relative">
+            {showEmoji && (
+              <div className="absolute bottom-16 left-4 z-10">
+                <EmojiPicker onSelect={(emoji) => setText((t) => t + emoji)} />
+              </div>
+            )}
+            {showAttachMenu && (
+              <div className="absolute bottom-16 left-4 bg-[var(--wa-panel)] shadow-lg rounded-lg py-1.5 w-52 z-10 text-sm overflow-hidden">
                 <button
-                  key={em}
                   type="button"
-                  onClick={() => setText((t) => t + em)}
-                  className="text-xl hover:bg-[var(--wa-panel-header)] rounded p-1"
+                  onClick={() => {
+                    setShowAttachMenu(false);
+                    mediaInputRef.current?.click();
+                  }}
+                  className="w-full text-left px-4 py-2.5 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-3 text-[var(--wa-text-primary)]"
                 >
-                  {em}
+                  <span className="w-8 h-8 rounded-full bg-[#bf59cf] flex items-center justify-center text-white shrink-0">
+                    <ImageIcon size={16} />
+                  </span>
+                  Photos &amp; videos
                 </button>
-              ))}
-            </div>
-          )}
-          {showAttachMenu && (
-            <div className="absolute bottom-16 left-4 bg-[var(--wa-panel)] shadow-lg rounded-lg py-1.5 w-52 z-10 text-sm overflow-hidden">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAttachMenu(false);
-                  mediaInputRef.current?.click();
-                }}
-                className="w-full text-left px-4 py-2.5 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-3 text-[var(--wa-text-primary)]"
-              >
-                <span className="w-8 h-8 rounded-full bg-[#bf59cf] flex items-center justify-center text-white shrink-0">
-                  <ImageIcon size={16} />
-                </span>
-                Photos &amp; videos
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAttachMenu(false);
-                  audioInputRef.current?.click();
-                }}
-                className="w-full text-left px-4 py-2.5 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-3 text-[var(--wa-text-primary)]"
-              >
-                <span className="w-8 h-8 rounded-full bg-[#e17055] flex items-center justify-center text-white shrink-0">
-                  <Music size={16} />
-                </span>
-                Audio
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAttachMenu(false);
-                  docInputRef.current?.click();
-                }}
-                className="w-full text-left px-4 py-2.5 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-3 text-[var(--wa-text-primary)]"
-              >
-                <span className="w-8 h-8 rounded-full bg-[#5157ae] flex items-center justify-center text-white shrink-0">
-                  <FileText size={16} />
-                </span>
-                Document
-              </button>
-            </div>
-          )}
-          <button type="button" onClick={() => setShowEmoji((v) => !v)} className="p-2 text-[var(--wa-icon)] hover:text-[var(--wa-text-primary)]">
-            <Smile size={22} />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowAttachMenu((v) => !v);
-              setShowEmoji(false);
-            }}
-            className="p-2 text-[var(--wa-icon)] hover:text-[var(--wa-text-primary)] rotate-45"
-          >
-            <Paperclip size={22} />
-          </button>
-          <input ref={mediaInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleMediaChange} />
-          <input ref={docInputRef} type="file" className="hidden" onChange={handleDocChange} />
-          <input ref={audioInputRef} type="file" accept="audio/*" className="hidden" onChange={handleAudioFileChange} />
-          <input
-            value={text}
-            onChange={(e) => handleTyping(e.target.value)}
-            placeholder="Type a message"
-            className="flex-1 bg-[var(--wa-panel)] rounded-lg px-4 py-2.5 text-sm outline-none text-[var(--wa-text-primary)]"
-          />
-          {text.trim() ? (
-            <button
-              type="submit"
-              className="p-2.5 rounded-full bg-[var(--wa-green)] text-white hover:bg-[var(--wa-green-dark)]"
-            >
-              <Send size={18} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAttachMenu(false);
+                    audioInputRef.current?.click();
+                  }}
+                  className="w-full text-left px-4 py-2.5 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-3 text-[var(--wa-text-primary)]"
+                >
+                  <span className="w-8 h-8 rounded-full bg-[#e17055] flex items-center justify-center text-white shrink-0">
+                    <Music size={16} />
+                  </span>
+                  Audio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAttachMenu(false);
+                    docInputRef.current?.click();
+                  }}
+                  className="w-full text-left px-4 py-2.5 hover:bg-[var(--wa-sidebar-hover)] flex items-center gap-3 text-[var(--wa-text-primary)]"
+                >
+                  <span className="w-8 h-8 rounded-full bg-[#5157ae] flex items-center justify-center text-white shrink-0">
+                    <FileText size={16} />
+                  </span>
+                  Document
+                </button>
+              </div>
+            )}
+            <button type="button" onClick={() => setShowEmoji((v) => !v)} className="p-2 text-[var(--wa-icon)] hover:text-[var(--wa-text-primary)]">
+              <Smile size={22} />
             </button>
-          ) : (
             <button
               type="button"
-              onClick={recorder.start}
-              title="Record a voice message"
-              className="p-2.5 rounded-full bg-[var(--wa-green)] text-white hover:bg-[var(--wa-green-dark)]"
+              onClick={() => {
+                setShowAttachMenu((v) => !v);
+                setShowEmoji(false);
+              }}
+              className="p-2 text-[var(--wa-icon)] hover:text-[var(--wa-text-primary)] rotate-45"
             >
-              <Mic size={18} />
+              <Paperclip size={22} />
             </button>
-          )}
-        </form>
+            <input ref={mediaInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleMediaChange} />
+            <input ref={docInputRef} type="file" className="hidden" onChange={handleDocChange} />
+            <input ref={audioInputRef} type="file" accept="audio/*" className="hidden" onChange={handleAudioFileChange} />
+            <input
+              value={text}
+              onChange={(e) => handleTyping(e.target.value)}
+              placeholder="Type a message"
+              className="flex-1 bg-[var(--wa-panel)] rounded-lg px-4 py-2.5 text-sm outline-none text-[var(--wa-text-primary)]"
+            />
+            {text.trim() ? (
+              <button
+                type="submit"
+                className="p-2.5 rounded-full bg-[var(--wa-green)] text-white hover:bg-[var(--wa-green-dark)]"
+              >
+                <Send size={18} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={recorder.start}
+                title="Record a voice message"
+                className="p-2.5 rounded-full bg-[var(--wa-green)] text-white hover:bg-[var(--wa-green-dark)]"
+              >
+                <Mic size={18} />
+              </button>
+            )}
+          </form>
+        </div>
       )}
 
       {viewerMessage && (
@@ -504,6 +654,19 @@ export default function ChatWindow({
           }}
         />
       )}
+
+      {forwardTarget && (
+        <ForwardModal
+          conversations={forwardableConversations}
+          onClose={() => setForwardTarget(null)}
+          onForward={(targetIds) => {
+            onForwardMessages(forwardTarget, targetIds);
+            if (selectMode) exitSelectMode();
+          }}
+        />
+      )}
+
+      {infoTarget && <MessageInfoModal message={infoTarget} onClose={() => setInfoTarget(null)} />}
     </div>
   );
 }

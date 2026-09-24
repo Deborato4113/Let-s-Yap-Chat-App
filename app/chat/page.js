@@ -34,6 +34,7 @@ export default function ChatPage() {
   const [showProfile, setShowProfile] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [socket, setSocket] = useState(null);
+  const [pendingAiQuote, setPendingAiQuote] = useState(null);
 
   const socketRef = useRef(null);
   const activeRef = useRef(null);
@@ -147,6 +148,26 @@ export default function ChatPage() {
       );
     });
 
+    s.on("message-reaction", ({ messageId, reactions }) => {
+      setMessagesByConvo((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) {
+          next[key] = next[key].map((m) => (m.id === messageId ? { ...m, reactions } : m));
+        }
+        return next;
+      });
+    });
+
+    s.on("message-pinned", ({ messageId, pinned }) => {
+      setMessagesByConvo((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) {
+          next[key] = next[key].map((m) => (m.id === messageId ? { ...m, pinned } : m));
+        }
+        return next;
+      });
+    });
+
     s.on("peer-block-changed", ({ byUserId, blocked }) => {
       setConversations((prev) =>
         prev.map((c) => (c.peer && String(c.peer.id) === String(byUserId) ? { ...c, hasBlockedMe: blocked } : c))
@@ -173,6 +194,8 @@ export default function ChatPage() {
       s.off("presence");
       s.off("peer-block-changed");
       s.off("message-deleted");
+      s.off("message-reaction");
+      s.off("message-pinned");
     };
   }, [token, user]);
 
@@ -225,6 +248,57 @@ export default function ChatPage() {
         [activeConversation.id]: (prev[activeConversation.id] || []).filter((m) => m.id !== id)
       }));
     }
+  }
+
+  function handleReact(messageId, emoji) {
+    socketRef.current?.emit("react-message", { messageId, emoji });
+  }
+
+  function handleTogglePin(messageId) {
+    socketRef.current?.emit("toggle-pin", { messageId });
+  }
+
+  function handleToggleStar(messageId) {
+    socketRef.current?.emit("toggle-star", { messageId }, (res) => {
+      if (!res || res.error) return;
+      setMessagesByConvo((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) {
+          next[key] = next[key].map((m) => (m.id === messageId ? { ...m, isStarredByMe: res.starred } : m));
+        }
+        return next;
+      });
+    });
+  }
+
+  // Re-sends each picked message (text/attachment, not its reactions/replies)
+  // into every target conversation - a plain new message in each, same as
+  // WhatsApp's "forward" behavior.
+  function handleForwardMessages(messagesToForward, targetConversationIds) {
+    targetConversationIds.forEach((conversationId) => {
+      messagesToForward.forEach((m) => {
+        socketRef.current?.emit("send-message", {
+          conversationId,
+          type: m.type,
+          text: m.text || "",
+          fileName: m.fileName || "",
+          fileData: m.fileData || ""
+        });
+      });
+    });
+  }
+
+  // "Yap AI" on a message's 3-dot menu: jump to the standing Yap AI chat and
+  // pre-fill the composer with a quote of that message, so sending it asks
+  // the real assistant about it - same flow as "Ask Meta AI" in WhatsApp.
+  function handleAskYapAi(message) {
+    const botConvo = conversations.find((c) => c.peer?.isBot);
+    if (!botConvo) return;
+    const quote = message.text
+      ? `Re: "${message.text.length > 200 ? `${message.text.slice(0, 200)}…` : message.text}"\n\n`
+      : `Re: (a ${message.type} message)\n\n`;
+    selectConversation(botConvo);
+    setPendingAiQuote(quote);
   }
 
   async function handleStartDm(targetUser) {
@@ -322,6 +396,7 @@ export default function ChatPage() {
       <div className={`flex-1 ${showMobileChat ? "block" : "hidden md:block"}`}>
         <ChatWindow
           conversation={activeConversation}
+          allConversations={conversations}
           messages={augmentedMessages}
           onSend={handleSend}
           onLoadMore={handleLoadMore}
@@ -338,6 +413,13 @@ export default function ChatPage() {
           onClearChat={handleClearChat}
           onDeleteChat={handleDeleteChat}
           onToggleBlock={handleToggleBlock}
+          onReact={handleReact}
+          onTogglePin={handleTogglePin}
+          onToggleStar={handleToggleStar}
+          onForwardMessages={handleForwardMessages}
+          onAskYapAI={handleAskYapAi}
+          pendingAiQuote={pendingAiQuote}
+          onConsumeAiQuote={() => setPendingAiQuote(null)}
         />
       </div>
 

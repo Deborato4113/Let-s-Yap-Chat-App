@@ -74,6 +74,72 @@ async function main() {
     console.log("+ conversation_settings table");
   }
 
+  if (!(await columnExists(conn, "users", "firebase_uid"))) {
+    await conn.query("ALTER TABLE users ADD COLUMN firebase_uid VARCHAR(128) NULL UNIQUE AFTER password");
+    console.log("+ users.firebase_uid");
+  }
+  // Firebase-only accounts (Google / Firebase email sign-in) never get a
+  // local bcrypt password, so the column has to allow NULL.
+  await conn.query("ALTER TABLE users MODIFY password VARCHAR(255) NULL");
+
+  if (!(await columnExists(conn, "messages", "reply_to_id"))) {
+    await conn.query("ALTER TABLE messages ADD COLUMN reply_to_id INT NULL AFTER deleted_for_everyone");
+    await conn.query(
+      "ALTER TABLE messages ADD CONSTRAINT fk_messages_reply_to FOREIGN KEY (reply_to_id) REFERENCES messages(id) ON DELETE SET NULL"
+    );
+    console.log("+ messages.reply_to_id");
+  }
+  if (!(await columnExists(conn, "messages", "pinned"))) {
+    await conn.query("ALTER TABLE messages ADD COLUMN pinned TINYINT(1) NOT NULL DEFAULT 0 AFTER reply_to_id");
+    console.log("+ messages.pinned");
+  }
+
+  if (!(await tableExists(conn, "message_reactions"))) {
+    await conn.query(`
+      CREATE TABLE message_reactions (
+        message_id INT NOT NULL,
+        user_id INT NOT NULL,
+        emoji VARCHAR(16) NOT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (message_id, user_id),
+        FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    console.log("+ message_reactions table");
+  }
+
+  if (!(await tableExists(conn, "message_stars"))) {
+    await conn.query(`
+      CREATE TABLE message_stars (
+        message_id INT NOT NULL,
+        user_id INT NOT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (message_id, user_id),
+        FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    console.log("+ message_stars table");
+  }
+
+  if (!(await columnExists(conn, "users", "is_bot"))) {
+    await conn.query("ALTER TABLE users ADD COLUMN is_bot TINYINT(1) NOT NULL DEFAULT 0 AFTER status");
+    console.log("+ users.is_bot");
+  }
+
+  // Seed the "Yap AI" assistant user once - lib/yapAiBot.js also creates it
+  // lazily on first use, but seeding it here means it shows up immediately
+  // after a fresh migrate, with no server restart needed.
+  const [botRows] = await conn.query("SELECT id FROM users WHERE username = 'yapai' LIMIT 1");
+  if (botRows.length === 0) {
+    await conn.query(
+      `INSERT INTO users (username, email, password, name, bio, avatar_color, status, is_bot)
+       VALUES ('yapai', 'yap-ai@system.local', NULL, 'Yap AI', 'Your built-in AI assistant. Ask me anything ✨', '#00A884', 'online', 1)`
+    );
+    console.log("+ Yap AI bot user");
+  }
+
   console.log("✅ Migration complete.");
   await conn.end();
 }

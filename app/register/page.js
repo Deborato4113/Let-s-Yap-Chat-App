@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { MessageCircle } from "lucide-react";
+import FirebaseAuthButtons from "@/components/FirebaseAuthButtons";
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -105,6 +106,8 @@ export default function RegisterPage() {
               Sign in
             </Link>
           </p>
+
+          <FirebaseAuthButtons />
         </form>
       </div>
     </div>

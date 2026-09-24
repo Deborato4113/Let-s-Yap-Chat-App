@@ -105,6 +105,7 @@ export default function Sidebar({
           const label = c.isGroup ? c.groupName : c.peer?.name || "Unknown";
           const color = c.isGroup ? c.groupAvatarColor : c.peer?.avatarColor;
           const avatarUrl = c.isGroup ? "" : c.peer?.avatarUrl;
+          const isBot = !c.isGroup && !!c.peer?.isBot;
           const isOnline = !c.isGroup && presence[c.peer?.id] === "online";
           return (
             <button
@@ -114,7 +115,16 @@ export default function Sidebar({
                 activeId === c.id ? "bg-[var(--wa-panel-header)]" : ""
               }`}
             >
-              <Avatar name={label} color={color} avatarUrl={avatarUrl} size={48} isGroup={c.isGroup} online={isOnline} showStatus />
+              <Avatar
+                name={label}
+                color={color}
+                avatarUrl={avatarUrl}
+                size={48}
+                isGroup={c.isGroup}
+                isBot={isBot}
+                online={isOnline}
+                showStatus={!isBot}
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-[var(--wa-text-primary)] truncate">{label}</p>
