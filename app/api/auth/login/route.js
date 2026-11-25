@@ -1,3 +1,4 @@
+import { USER_COLS } from "@/lib/avatars";
 import bcrypt from "bcryptjs";
 import pool from "@/lib/db";
 import { finishLogin } from "@/lib/loginFlow";
@@ -11,7 +12,7 @@ export async function POST(req) {
     }
 
     const [rows] = await pool.query(
-      "SELECT * FROM users WHERE username = ? OR email = ? LIMIT 1",
+      `SELECT ${USER_COLS} FROM users WHERE username = ? OR email = ? LIMIT 1`,
       [identifier, identifier]
     );
     const user = rows[0];

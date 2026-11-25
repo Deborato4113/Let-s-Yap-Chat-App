@@ -1,3 +1,4 @@
+import { USER_COLS } from "@/lib/avatars";
 import pool from "@/lib/db";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 import { finishLogin } from "@/lib/loginFlow";
@@ -49,14 +50,14 @@ export async function POST(req) {
     const { uid, email, name, picture } = decoded;
 
     // 1. Already linked to a local account.
-    let [rows] = await pool.query("SELECT * FROM users WHERE firebase_uid = ? LIMIT 1", [uid]);
+    let [rows] = await pool.query(`SELECT ${USER_COLS} FROM users WHERE firebase_uid = ? LIMIT 1`, [uid]);
     let user = rows[0];
 
     // 2. Not linked yet, but an account with this email already exists
     //    (e.g. they originally signed up with username/password) - link it
     //    rather than creating a duplicate account.
     if (!user && email) {
-      [rows] = await pool.query("SELECT * FROM users WHERE email = ? LIMIT 1", [email]);
+      [rows] = await pool.query(`SELECT ${USER_COLS} FROM users WHERE email = ? LIMIT 1`, [email]);
       if (rows[0]) {
         await pool.query("UPDATE users SET firebase_uid = ? WHERE id = ?", [uid, rows[0].id]);
         user = { ...rows[0], firebase_uid: uid };
@@ -75,7 +76,7 @@ export async function POST(req) {
          VALUES (?, ?, NULL, ?, ?, ?, ?, 'online', NOW(3))`,
         [username, emailForRecord, uid, displayName, avatarColor, picture || null]
       );
-      [rows] = await pool.query("SELECT * FROM users WHERE id = ?", [result.insertId]);
+      [rows] = await pool.query(`SELECT ${USER_COLS} FROM users WHERE id = ?`, [result.insertId]);
       user = rows[0];
     } else {
       await pool.query("UPDATE users SET status = 'online', last_seen = NOW(3) WHERE id = ?", [user.id]);

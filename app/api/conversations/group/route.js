@@ -1,3 +1,4 @@
+import { convoCols } from "@/lib/avatars";
 import pool from "@/lib/db";
 import { ensureSchema } from "@/lib/ensureSchema";
 import { getUserFromRequest } from "@/lib/authServer";
@@ -48,7 +49,7 @@ export async function POST(req) {
     );
     await connection.commit();
 
-    const [rows] = await connection.query("SELECT * FROM conversations WHERE id = ?", [result.insertId]);
+    const [rows] = await connection.query(`SELECT ${convoCols("conversations")} FROM conversations WHERE id = ?`, [result.insertId]);
     const payload = await buildConversationPayload(rows[0], me.id);
     return Response.json(payload, { status: 201 });
   } catch (err) {

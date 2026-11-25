@@ -25,7 +25,7 @@ export async function GET(req, { params }) {
   if (!scope) return Response.json({ message: "Conversation not found." }, { status: 404 });
 
   const [rows] = await pool.query(
-    `SELECT m.id, m.type, m.text, m.file_name, ${kind === "links" ? "''" : "m.file_data"} AS file_data, m.timestamp, m.sender_id, u.name AS sender_name
+    `SELECT m.id, m.type, m.text, m.file_name, ${kind === "links" ? "''" : "IF(LENGTH(m.file_data) <= 150000, m.file_data, '')"} AS file_data, ${kind === "links" ? "0" : "LENGTH(m.file_data)"} AS file_size, m.timestamp, m.sender_id, u.name AS sender_name
      FROM messages m JOIN users u ON u.id = m.sender_id
      WHERE ${scope.where} AND m.view_once = 0 ${typeSql} ${before ? "AND m.id < ?" : ""}
      ORDER BY m.id DESC LIMIT ${PAGE + 1}`,
@@ -44,7 +44,7 @@ export async function GET(req, { params }) {
       const urls = [...new Set((r.text || "").match(/https?:\/\/[^\s<>"']+/g) || [])].map((u) => u.replace(/[.,;:!?)\]]+$/, ""));
       return { ...base, text: r.text || "", urls };
     }
-    return { ...base, fileName: r.file_name || "", fileData: r.file_data || "" };
+    return { ...base, fileName: r.file_name || "", fileData: r.file_data || "", fileLazy: Number(r.file_size) > 150000 };
   });
   return Response.json({ items, more });
 }

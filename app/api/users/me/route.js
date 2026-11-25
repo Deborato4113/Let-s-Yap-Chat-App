@@ -1,3 +1,4 @@
+import { USER_COLS } from "@/lib/avatars";
 import pool from "@/lib/db";
 import { getUserFromRequest } from "@/lib/authServer";
 import { toPublicUser } from "@/lib/serialize";
@@ -6,7 +7,7 @@ import { ensureSchema } from "@/lib/ensureSchema";
 export async function GET(req) {
   const user = await getUserFromRequest(req);
   if (!user) return Response.json({ message: "Missing or invalid auth token." }, { status: 401 });
-  const [rows] = await pool.query("SELECT * FROM users WHERE id = ?", [user.id]);
+  const [rows] = await pool.query(`SELECT ${USER_COLS} FROM users WHERE id = ?`, [user.id]);
   if (!rows[0]) return Response.json({ message: "User not found." }, { status: 404 });
   return Response.json({ user: toPublicUser(rows[0]) });
 }
@@ -31,7 +32,9 @@ export async function PATCH(req) {
     fields.push("avatar_color = ?");
     values.push(avatarColor);
   }
-  if (typeof avatarUrl === "string") {
+  // Only a new photo (data URL) or "" (remove) changes the stored photo; the "/api/avatar/..." link the
+  // client already holds just means "unchanged".
+  if (typeof avatarUrl === "string" && (avatarUrl === "" || avatarUrl.startsWith("data:image/"))) {
     // Same 5MB cap as chat attachments - profile photos ride the same base64-in-column pattern.
     if (avatarUrl.length > 7 * 1024 * 1024) {
       return Response.json({ message: "Profile photo is too large (max 5MB)." }, { status: 400 });
@@ -62,6 +65,6 @@ export async function PATCH(req) {
     await pool.query(`UPDATE users SET ${fields.join(", ")} WHERE id = ?`, values);
   }
 
-  const [rows] = await pool.query("SELECT * FROM users WHERE id = ?", [user.id]);
+  const [rows] = await pool.query(`SELECT ${USER_COLS} FROM users WHERE id = ?`, [user.id]);
   return Response.json({ user: toPublicUser(rows[0]) });
 }

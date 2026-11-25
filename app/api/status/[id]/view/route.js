@@ -1,3 +1,4 @@
+import { userAvatarFromRow } from "@/lib/avatars";
 import pool from "@/lib/db";
 import { getUserFromRequest } from "@/lib/authServer";
 import { ensureSchema } from "@/lib/ensureSchema";
@@ -31,7 +32,7 @@ export async function GET(req, { params }) {
   if (own.length === 0) return Response.json({ message: "Status not found." }, { status: 404 });
 
   const [rows] = await pool.query(
-    `SELECT u.id, u.name, u.avatar_color, u.avatar_url, v.viewed_at
+    `SELECT u.id, u.name, u.avatar_color, LENGTH(u.avatar_url) AS avatar_len, CRC32(u.avatar_url) AS avatar_crc, v.viewed_at
      FROM status_views v JOIN users u ON u.id = v.viewer_id
      WHERE v.status_id = ? ORDER BY v.viewed_at DESC`,
     [Number(id)]
@@ -41,7 +42,7 @@ export async function GET(req, { params }) {
       id: String(r.id),
       name: r.name,
       avatarColor: r.avatar_color,
-      avatarUrl: r.avatar_url || "",
+      avatarUrl: userAvatarFromRow(r),
       viewedAt: new Date(r.viewed_at).getTime()
     }))
   });

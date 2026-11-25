@@ -1,3 +1,4 @@
+import { userAvatarFromRow } from "@/lib/avatars";
 import pool from "@/lib/db";
 import { getUserFromRequest } from "@/lib/authServer";
 import { ensureSchema } from "@/lib/ensureSchema";
@@ -19,7 +20,7 @@ export async function GET(req) {
 
   const [rows] = await pool.query(
     `SELECT s.id, s.user_id, s.kind, s.text, s.bg_color, s.created_at,
-            u.name, u.avatar_color, u.avatar_url,
+            u.id AS uid_, u.name, u.avatar_color, LENGTH(u.avatar_url) AS avatar_len, CRC32(u.avatar_url) AS avatar_crc,
             (SELECT COUNT(*) FROM status_views v WHERE v.status_id = s.id) AS view_count,
             EXISTS (SELECT 1 FROM status_views v WHERE v.status_id = s.id AND v.viewer_id = ?) AS viewed
      FROM statuses s JOIN users u ON u.id = s.user_id
@@ -33,7 +34,7 @@ export async function GET(req) {
     const uid = String(r.user_id);
     if (!byUser.has(uid)) {
       byUser.set(uid, {
-        user: { id: uid, name: r.name, avatarColor: r.avatar_color, avatarUrl: r.avatar_url || "" },
+        user: { id: uid, name: r.name, avatarColor: r.avatar_color, avatarUrl: userAvatarFromRow({ ...r, id: r.user_id }) },
         items: []
       });
     }

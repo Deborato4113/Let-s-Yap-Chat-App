@@ -1,3 +1,4 @@
+import { userAvatarFromRow } from "@/lib/avatars";
 import pool from "@/lib/db";
 import { getUserFromRequest } from "@/lib/authServer";
 import { ensureSchema } from "@/lib/ensureSchema";
@@ -17,14 +18,14 @@ export async function GET(req, { params }) {
     return Response.json({ message: "Only the sender can see message info." }, { status: 403 });
   }
   const [members] = await pool.query(
-    `SELECT u.id, u.name, u.avatar_color, u.avatar_url,
+    `SELECT u.id, u.name, u.avatar_color, LENGTH(u.avatar_url) AS avatar_len, CRC32(u.avatar_url) AS avatar_crc,
             (SELECT 1 FROM message_reads mr WHERE mr.message_id = ? AND mr.user_id = u.id LIMIT 1) AS is_read,
             (SELECT 1 FROM message_deliveries md WHERE md.message_id = ? AND md.user_id = u.id LIMIT 1) AS is_delivered
      FROM conversation_participants cp JOIN users u ON u.id = cp.user_id
      WHERE cp.conversation_id = ? AND u.id != ? AND u.is_bot = 0`,
     [messageId, messageId, msg.conversation_id, me.id]
   );
-  const shape = (u) => ({ id: String(u.id), name: u.name, avatarColor: u.avatar_color, avatarUrl: u.avatar_url || "" });
+  const shape = (u) => ({ id: String(u.id), name: u.name, avatarColor: u.avatar_color, avatarUrl: userAvatarFromRow(u) });
   return Response.json({
     readBy: members.filter((u) => u.is_read).map(shape),
     deliveredTo: members.filter((u) => !u.is_read && u.is_delivered).map(shape),

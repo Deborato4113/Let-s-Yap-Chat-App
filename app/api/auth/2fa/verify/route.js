@@ -1,3 +1,4 @@
+import { USER_COLS } from "@/lib/avatars";
 import pool from "@/lib/db";
 import { verifyChallenge, tooManyAttempts, recordFailure, clearFailures } from "@/lib/loginFlow";
 import { issueToken } from "@/lib/sessions";
@@ -16,7 +17,7 @@ export async function POST(req) {
     if (tooManyAttempts(key)) {
       return Response.json({ message: "Too many wrong codes. Wait a few minutes and try again." }, { status: 429 });
     }
-    const [rows] = await pool.query("SELECT * FROM users WHERE id = ? LIMIT 1", [decoded.id]);
+    const [rows] = await pool.query(`SELECT ${USER_COLS} FROM users WHERE id = ? LIMIT 1`, [decoded.id]);
     const user = rows[0];
     if (!user || !user.totp_enabled || !user.totp_secret) {
       return Response.json({ message: "Two-step verification is not on for this account." }, { status: 400 });

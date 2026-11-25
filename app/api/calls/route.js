@@ -18,7 +18,7 @@ export async function GET(req) {
 
   const [rows] = await pool.query(
     `SELECT m.id, m.text, m.sender_id, m.conversation_id, m.timestamp,
-            pu.id AS peer_id, pu.username, pu.name, pu.bio, pu.avatar_color, pu.avatar_url,
+            pu.id AS peer_id, pu.username, pu.name, pu.bio, pu.avatar_color, LENGTH(pu.avatar_url) AS avatar_len, CRC32(pu.avatar_url) AS avatar_crc,
             pu.theme, pu.dark_mode, pu.status, pu.is_bot, pu.last_seen
      FROM messages m
      JOIN conversations c ON c.id = m.conversation_id AND c.is_group = 0

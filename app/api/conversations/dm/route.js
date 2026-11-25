@@ -1,3 +1,4 @@
+import { convoCols } from "@/lib/avatars";
 import pool from "@/lib/db";
 import { getUserFromRequest } from "@/lib/authServer";
 import { buildConversationPayload, ensureDeletedAtColumn } from "@/lib/conversations";
@@ -21,7 +22,7 @@ export async function POST(req) {
   if (peerRows.length === 0) return Response.json({ message: "User not found." }, { status: 404 });
 
   const [existingRows] = await pool.query(
-    `SELECT c.* FROM conversations c
+    `SELECT ${convoCols("c")} FROM conversations c
      WHERE c.is_group = 0
        AND EXISTS (SELECT 1 FROM conversation_participants cp1 WHERE cp1.conversation_id = c.id AND cp1.user_id = ?)
        AND EXISTS (SELECT 1 FROM conversation_participants cp2 WHERE cp2.conversation_id = c.id AND cp2.user_id = ?)
@@ -51,7 +52,7 @@ export async function POST(req) {
         [me.id, result.insertId]
       );
       await connection.commit();
-      const [rows] = await connection.query("SELECT * FROM conversations WHERE id = ?", [result.insertId]);
+      const [rows] = await connection.query(`SELECT ${convoCols("conversations")} FROM conversations WHERE id = ?`, [result.insertId]);
       convoRow = rows[0];
     } catch (err) {
       await connection.rollback();

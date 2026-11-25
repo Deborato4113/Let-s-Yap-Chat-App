@@ -38,6 +38,7 @@ import ReactionBar from "./ReactionBar";
 import FlaggedText from "./FlaggedText";
 import RichText, { extractFirstUrl } from "./RichText";
 import LinkPreview from "./LinkPreview";
+import { useHydratedMessage } from "@/lib/useLazyFile";
 import CallEntry from "./CallEntry";
 import { getPrefs, setPref } from "@/lib/prefs";
 import PollMessage from "./PollMessage";
@@ -86,7 +87,7 @@ function groupReactions(reactions, currentUserId) {
 }
 
 export default function MessageBubble({
-  message,
+  message: rawMessage,
   isOwn,
   showSender,
   senderName,
@@ -117,6 +118,7 @@ export default function MessageBubble({
   onReplyPrivately,
   autoTranslation = ""
 }) {
+  const message = useHydratedMessage(rawMessage); // big attachments are fetched on demand
   const [menuOpen, setMenuOpen] = useState(false);
   const [reactionBarOpen, setReactionBarOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);

@@ -1,3 +1,4 @@
+import { convoCols } from "@/lib/avatars";
 import pool from "@/lib/db";
 import { getUserFromRequest } from "@/lib/authServer";
 import { buildConversationPayload, ensureDeletedAtColumn } from "@/lib/conversations";
@@ -12,7 +13,7 @@ export async function GET(req) {
   await Promise.all([getOrCreateBotConversation(me.id), ensureDeletedAtColumn()]);
 
   const [rows] = await pool.query(
-    `SELECT c.* FROM conversations c
+    `SELECT ${convoCols("c")} FROM conversations c
      JOIN conversation_participants cp ON cp.conversation_id = c.id
      LEFT JOIN conversation_settings cs ON cs.conversation_id = c.id AND cs.user_id = cp.user_id
      WHERE cp.user_id = ? AND cs.deleted_at IS NULL

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FileText, Mic, Play, ExternalLink, X, Download, CornerDownRight } from "lucide-react";
 import api from "@/lib/api";
 import { formatDayLabel } from "@/lib/utils";
+import { loadMessageFile } from "@/lib/useLazyFile";
 
 // One tab of "Media, links and docs": a grid of photos/videos, a list of files and
 // voice notes, or a list of every link shared in the chat.
@@ -37,6 +38,41 @@ export default function MediaGallery({ conversationId, kind, onJump }) {
     load();
   }, [load]);
 
+  // Big attachments are not in the list: photo thumbnails are fetched one at a time,
+  // everything else only when it is opened / downloaded.
+  const pendingImage = items.find((it) => it.type === "image" && it.fileLazy && !it.fileData);
+  useEffect(() => {
+    if (!pendingImage) return;
+    let cancelled = false;
+    loadMessageFile(pendingImage.id).then((d) => {
+      if (cancelled) return;
+      setItems((prev) => prev.map((x) => (x.id === pendingImage.id ? { ...x, fileData: d || "", fileLazy: false } : x)));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingImage?.id]);
+
+  async function ensureData(it) {
+    if (!it.fileLazy || it.fileData) return it;
+    const d = await loadMessageFile(it.id);
+    const full = { ...it, fileData: d, fileLazy: false };
+    setItems((prev) => prev.map((x) => (x.id === it.id ? full : x)));
+    return full;
+  }
+  async function openItem(it) {
+    setOpen(it.fileLazy && !it.fileData ? { ...it, loadingFile: true } : it);
+    const full = await ensureData(it);
+    setOpen(full);
+  }
+  async function downloadItem(it) {
+    const full = await ensureData(it);
+    const a = document.createElement("a");
+    a.href = full.fileData;
+    a.download = full.fileName || "file";
+    a.click();
+  }
+
   const empty = !loading && !error && items.length === 0;
   const emptyText = kind === "media" ? "No photos, videos or voice messages yet." : kind === "docs" ? "No files yet." : "No links shared yet.";
 
@@ -48,7 +84,7 @@ export default function MediaGallery({ conversationId, kind, onJump }) {
       {kind === "media" && (
         <div className="grid grid-cols-3 gap-1">
           {items.map((it) => (
-            <button key={it.id} onClick={() => setOpen(it)} className="relative aspect-square bg-[var(--wa-panel-header)] overflow-hidden rounded">
+            <button key={it.id} onClick={() => openItem(it)} className="relative aspect-square bg-[var(--wa-panel-header)] overflow-hidden rounded">
               {it.type === "image" ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={it.fileData} alt={it.fileName || "Photo"} className="w-full h-full object-cover" />
@@ -79,9 +115,9 @@ export default function MediaGallery({ conversationId, kind, onJump }) {
                 {it.senderName} · {formatDayLabel(it.timestamp)}
               </p>
             </div>
-            <a href={it.fileData} download={it.fileName || "file"} aria-label="Download" className="p-2 rounded-full hover:bg-[var(--wa-panel-header)] text-[var(--wa-icon)]">
+            <button onClick={() => downloadItem(it)} aria-label="Download" className="p-2 rounded-full hover:bg-[var(--wa-panel-header)] text-[var(--wa-icon)]">
               <Download size={16} />
-            </a>
+            </button>
             {onJump && (
               <button onClick={() => onJump(it)} aria-label="Show in chat" title="Show in chat" className="p-2 rounded-full hover:bg-[var(--wa-panel-header)] text-[var(--wa-icon)]">
                 <CornerDownRight size={16} />
@@ -140,7 +176,9 @@ export default function MediaGallery({ conversationId, kind, onJump }) {
             </div>
           </div>
           <div className="flex-1 min-h-0 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
-            {open.type === "audio" ? (
+            {open.loadingFile ? (
+              <p className="text-white/80 text-sm">Loading…</p>
+            ) : open.type === "audio" ? (
               <audio src={open.fileData} controls autoPlay className="w-full max-w-sm" />
             ) : open.type === "image" ? (
               // eslint-disable-next-line @next/next/no-img-element

@@ -1,3 +1,4 @@
+import { USER_COLS } from "@/lib/avatars";
 import bcrypt from "bcryptjs";
 import pool from "@/lib/db";
 import { finishLogin } from "@/lib/loginFlow";
@@ -51,7 +52,7 @@ export async function POST(req) {
       [username, email, hashed, name, avatarColor]
     );
 
-    const [rows] = await pool.query("SELECT * FROM users WHERE id = ?", [result.insertId]);
+    const [rows] = await pool.query(`SELECT ${USER_COLS} FROM users WHERE id = ?`, [result.insertId]);
     const user = rows[0];
 
     return finishLogin(user, req, 201);

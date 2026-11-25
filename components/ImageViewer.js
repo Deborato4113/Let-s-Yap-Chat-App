@@ -4,12 +4,14 @@ import { useState } from "react";
 import { X, Download, Trash2 } from "lucide-react";
 import { formatTime } from "@/lib/utils";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
+import { useHydratedMessage } from "@/lib/useLazyFile";
 
 // Full-screen WhatsApp-style media viewer. Opened by tapping an image/video
 // bubble. Any message - yours or received - can be deleted right from here
 // via the same confirm dialog used in the chat list ("delete for everyone"
 // only shows up when it's your own message).
-export default function ImageViewer({ message, isOwn, onClose, onDelete }) {
+export default function ImageViewer({ message: rawMessage, isOwn, onClose, onDelete }) {
+  const message = useHydratedMessage(rawMessage); // big photos are fetched on demand
   const [confirming, setConfirming] = useState(false);
 
   if (!message) return null;

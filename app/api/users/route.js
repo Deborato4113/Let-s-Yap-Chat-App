@@ -1,3 +1,4 @@
+import { USER_COLS } from "@/lib/avatars";
 import pool from "@/lib/db";
 import { getUserFromRequest } from "@/lib/authServer";
 import { toPublicUser } from "@/lib/serialize";
@@ -15,11 +16,11 @@ export async function GET(req) {
   if (q) {
     const like = `%${q}%`;
     [rows] = await pool.query(
-      "SELECT * FROM users WHERE id != ? AND is_bot = 0 AND (username LIKE ? OR name LIKE ?) LIMIT 50",
+      `SELECT ${USER_COLS} FROM users WHERE id != ? AND is_bot = 0 AND (username LIKE ? OR name LIKE ?) LIMIT 50`,
       [me.id, like, like]
     );
   } else {
-    [rows] = await pool.query("SELECT * FROM users WHERE id != ? AND is_bot = 0 LIMIT 50", [me.id]);
+    [rows] = await pool.query(`SELECT ${USER_COLS} FROM users WHERE id != ? AND is_bot = 0 LIMIT 50`, [me.id]);
   }
 
   const blockers = await getBlockersOf(me.id);
