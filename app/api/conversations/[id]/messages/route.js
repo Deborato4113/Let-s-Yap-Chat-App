@@ -1,5 +1,7 @@
 import pool from "@/lib/db";
 import { getUserFromRequest } from "@/lib/authServer";
+import { hiddenByBlockSql } from "@/lib/blocking";
+import { notExpiredSql } from "@/lib/ensureSchema";
 import { attachReadAndDelivery, MESSAGE_SELECT_WITH_SENDER } from "@/lib/messages";
 
 export async function GET(req, { params }) {
@@ -20,7 +22,11 @@ export async function GET(req, { params }) {
     return Response.json({ message: "Conversation not found." }, { status: 404 });
   }
 
-  const PAGE_SIZE = 40;
+  // `since` (ms): return EVERYTHING from that time up to `before` (capped),
+  // instead of one 40-message page - used to jump to an old search result.
+  const sinceParam = new URL(req.url).searchParams.get("since");
+  const since = sinceParam ? new Date(Number(sinceParam)) : null;
+  const PAGE_SIZE = since ? 1000 : 40;
   const beforeParam = new URL(req.url).searchParams.get("before");
   const before = beforeParam ? new Date(Number(beforeParam)) : new Date(Date.now() + 1000);
 
@@ -35,16 +41,18 @@ export async function GET(req, { params }) {
      WHERE m.conversation_id = ?
        AND m.timestamp < ?
        ${clearedBefore ? "AND m.timestamp > ?" : ""}
+       ${since ? "AND m.timestamp >= ?" : ""}
        AND NOT EXISTS (SELECT 1 FROM message_deleted_for mdf WHERE mdf.message_id = m.id AND mdf.user_id = ?)
+       ${notExpiredSql("m")}
+       ${hiddenByBlockSql("m")}
      ORDER BY m.timestamp DESC
      LIMIT ?`,
-    clearedBefore
-      ? [conversationId, before, clearedBefore, me.id, PAGE_SIZE]
-      : [conversationId, before, me.id, PAGE_SIZE]
+    [conversationId, before, ...(clearedBefore ? [clearedBefore] : []), ...(since ? [since] : []), me.id, me.id, me.id, me.id, PAGE_SIZE]
   );
 
   rows.reverse();
-  const hasMore = rows.length === PAGE_SIZE;
+  // With `since`, assume older history may still exist (client keeps paging).
+  const hasMore = since ? true : rows.length === PAGE_SIZE;
   const messages = await attachReadAndDelivery(rows, me.id);
 
   return Response.json({ messages, hasMore });

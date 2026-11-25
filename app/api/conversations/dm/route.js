@@ -1,6 +1,7 @@
 import pool from "@/lib/db";
 import { getUserFromRequest } from "@/lib/authServer";
-import { buildConversationPayload } from "@/lib/conversations";
+import { buildConversationPayload, ensureDeletedAtColumn } from "@/lib/conversations";
+import { ensureSchema } from "@/lib/ensureSchema";
 
 export async function POST(req) {
   const me = await getUserFromRequest(req);
@@ -32,6 +33,7 @@ export async function POST(req) {
   let convoRow = existingRows[0];
 
   if (!convoRow) {
+    await ensureSchema();
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -43,6 +45,11 @@ export async function POST(req) {
         "INSERT INTO conversation_participants (conversation_id, user_id) VALUES (?, ?), (?, ?)",
         [result.insertId, me.id, result.insertId, targetId]
       );
+      // new chats start with my default disappearing-messages timer (0 = off)
+      await connection.query(
+        "UPDATE conversations SET disappearing_seconds = COALESCE((SELECT default_disappearing_seconds FROM users WHERE id = ?), 0) WHERE id = ?",
+        [me.id, result.insertId]
+      );
       await connection.commit();
       const [rows] = await connection.query("SELECT * FROM conversations WHERE id = ?", [result.insertId]);
       convoRow = rows[0];
@@ -53,6 +60,13 @@ export async function POST(req) {
       connection.release();
     }
   }
+
+  // If I'd deleted this chat earlier, bring it back (history stays cleared).
+  await ensureDeletedAtColumn();
+  await pool.query(
+    "UPDATE conversation_settings SET deleted_at = NULL WHERE conversation_id = ? AND user_id = ?",
+    [convoRow.id, me.id]
+  );
 
   const payload = await buildConversationPayload(convoRow, me.id);
   return Response.json(payload);

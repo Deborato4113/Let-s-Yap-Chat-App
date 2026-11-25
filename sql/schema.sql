@@ -129,6 +129,7 @@ CREATE TABLE IF NOT EXISTS conversation_settings (
   user_id INT NOT NULL,
   muted TINYINT(1) NOT NULL DEFAULT 0,
   cleared_before DATETIME(3) NULL,
+  deleted_at DATETIME(3) NULL, -- per-user "delete chat" (soft); added automatically at runtime for existing DBs
   PRIMARY KEY (conversation_id, user_id),
   FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

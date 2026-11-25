@@ -10,6 +10,7 @@ import {
   registerWithFirebaseEmail
 } from "@/lib/firebaseClient";
 import { Mail } from "lucide-react";
+import TwoFactorStep from "@/components/TwoFactorStep";
 
 // Google + Firebase email/password sign-in, shared by /login and /register.
 // Either path ends the same way: get a Firebase ID token client-side, hand it
@@ -23,11 +24,13 @@ export default function FirebaseAuthButtons() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [challenge, setChallenge] = useState(null);
 
   async function finishWithIdToken(idToken) {
     const { data } = await api.post("/auth/firebase", { idToken });
-    loginWithFirebase(data);
-    router.push("/chat");
+    const res = loginWithFirebase(data);
+    if (res?.twoFactor) setChallenge(res.challenge);
+    else router.push("/chat");
   }
 
   async function handleGoogle() {
@@ -70,6 +73,14 @@ export default function FirebaseAuthButtons() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (challenge) {
+    return (
+      <div className="mt-2">
+        <TwoFactorStep challenge={challenge} onDone={() => router.push("/chat")} onCancel={() => setChallenge(null)} />
+      </div>
+    );
   }
 
   return (

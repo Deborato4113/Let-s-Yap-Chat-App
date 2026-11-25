@@ -1,6 +1,7 @@
 import pool from "@/lib/db";
 import { getUserFromRequest } from "@/lib/authServer";
 import { toPublicUser } from "@/lib/serialize";
+import { getBlockersOf } from "@/lib/blocking";
 
 export async function GET(req) {
   const me = await getUserFromRequest(req);
@@ -21,5 +22,11 @@ export async function GET(req) {
     [rows] = await pool.query("SELECT * FROM users WHERE id != ? AND is_bot = 0 LIMIT 50", [me.id]);
   }
 
-  return Response.json(rows.map(toPublicUser));
+  const blockers = await getBlockersOf(me.id);
+  return Response.json(
+    rows.map((r) => {
+      const u = toPublicUser(r);
+      return blockers.has(String(u.id)) ? { ...u, avatarUrl: "", lastSeen: 0, status: "offline" } : u;
+    })
+  );
 }

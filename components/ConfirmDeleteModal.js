@@ -3,7 +3,7 @@
 // WhatsApp-style "Delete message?" confirmation dialog. Shown before any
 // destructive delete (text or media) so deleting a photo works exactly the
 // same way as deleting a text message.
-export default function ConfirmDeleteModal({ isOwn, onCancel, onConfirm }) {
+export default function ConfirmDeleteModal({ isOwn, onCancel, onConfirm, count = 1 }) {
   return (
     <div
       className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4"
@@ -14,7 +14,9 @@ export default function ConfirmDeleteModal({ isOwn, onCancel, onConfirm }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 pt-5 pb-3">
-          <h3 className="text-base font-medium text-[var(--wa-text-primary)]">Delete message?</h3>
+          <h3 className="text-base font-medium text-[var(--wa-text-primary)]">
+            {count > 1 ? `Delete ${count} messages?` : "Delete message?"}
+          </h3>
         </div>
         <div className="flex flex-col">
           {isOwn && (

@@ -1,7 +1,6 @@
 import pool from "@/lib/db";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
-import { signToken } from "@/lib/jwt";
-import { toPublicUser } from "@/lib/serialize";
+import { finishLogin } from "@/lib/loginFlow";
 
 const AVATAR_COLORS = [
   "#00A884", "#7F66FF", "#FF6B6B", "#4C9AFF", "#FFA94D",
@@ -83,8 +82,7 @@ export async function POST(req) {
       user.status = "online";
     }
 
-    const token = signToken({ id: user.id });
-    return Response.json({ token, user: toPublicUser(user) });
+    return finishLogin(user, req);
   } catch (err) {
     console.error("Firebase auth error:", err);
     return Response.json({ message: "Sign-in failed. Please try again." }, { status: 500 });

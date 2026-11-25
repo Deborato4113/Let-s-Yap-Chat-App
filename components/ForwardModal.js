@@ -4,14 +4,14 @@ import { useState } from "react";
 import { X, Send } from "lucide-react";
 import Avatar from "./Avatar";
 
-export default function ForwardModal({ conversations, onClose, onForward }) {
+export default function ForwardModal({ conversations, onClose, onForward, maxTargets = 5 }) {
   const [selected, setSelected] = useState(new Set());
 
   function toggle(id) {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
-      else next.add(id);
+      else if (next.size < maxTargets) next.add(id);
       return next;
     });
   }
@@ -63,6 +63,15 @@ export default function ForwardModal({ conversations, onClose, onForward }) {
             );
           })}
         </div>
+
+        {maxTargets < 5 && (
+          <p className="px-4 py-2 text-xs text-[var(--wa-text-secondary)] border-t border-[var(--wa-border-light)]">
+            This message has been forwarded many times, so it can only go to one chat at a time.
+          </p>
+        )}
+        {selected.size >= maxTargets && maxTargets >= 5 && (
+          <p className="px-4 py-2 text-xs text-[var(--wa-text-secondary)] border-t border-[var(--wa-border-light)]">You can forward to up to {maxTargets} chats at once.</p>
+        )}
 
         {selected.size > 0 && (
           <div className="p-3 border-t border-[var(--wa-border-light)] flex justify-end">

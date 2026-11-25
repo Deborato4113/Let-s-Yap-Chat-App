@@ -1,6 +1,7 @@
 import pool from "@/lib/db";
 import { getUserFromRequest } from "@/lib/authServer";
 import { toPublicUser } from "@/lib/serialize";
+import { ensureSchema } from "@/lib/ensureSchema";
 
 export async function GET(req) {
   const user = await getUserFromRequest(req);
@@ -14,7 +15,7 @@ export async function PATCH(req) {
   const user = await getUserFromRequest(req);
   if (!user) return Response.json({ message: "Missing or invalid auth token." }, { status: 401 });
 
-  const { name, bio, avatarColor, avatarUrl, theme, darkMode } = await req.json();
+  const { name, bio, avatarColor, avatarUrl, theme, darkMode, defaultDisappearing } = await req.json();
   const fields = [];
   const values = [];
 
@@ -45,6 +46,15 @@ export async function PATCH(req) {
   if (typeof darkMode === "boolean") {
     fields.push("dark_mode = ?");
     values.push(darkMode ? 1 : 0);
+  }
+
+  if (defaultDisappearing !== undefined) {
+    if (![0, 86400, 604800, 7776000].includes(Number(defaultDisappearing))) {
+      return Response.json({ message: "Choose Off, 24 hours, 7 days or 90 days." }, { status: 400 });
+    }
+    await ensureSchema();
+    fields.push("default_disappearing_seconds = ?");
+    values.push(Number(defaultDisappearing));
   }
 
   if (fields.length > 0) {

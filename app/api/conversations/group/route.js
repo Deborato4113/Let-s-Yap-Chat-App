@@ -1,6 +1,8 @@
 import pool from "@/lib/db";
+import { ensureSchema } from "@/lib/ensureSchema";
 import { getUserFromRequest } from "@/lib/authServer";
 import { buildConversationPayload } from "@/lib/conversations";
+import { getBlockersOf } from "@/lib/blocking";
 
 export async function POST(req) {
   const me = await getUserFromRequest(req);
@@ -18,8 +20,12 @@ export async function POST(req) {
     return Response.json({ message: "Select at least one other member." }, { status: 400 });
   }
 
-  const memberIds = Array.from(new Set([me.id, ...ids]));
+  // Anyone who has blocked me can't be added to my groups. They're skipped
+  // silently - an error here would tell me I'm blocked.
+  const blockers = await getBlockersOf(me.id);
+  const memberIds = Array.from(new Set([me.id, ...ids.filter((id) => !blockers.has(String(id)))]));
 
+  await ensureSchema();
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -35,6 +41,11 @@ export async function POST(req) {
       values
     );
 
+    await connection.query("UPDATE conversation_participants SET is_admin = 1 WHERE conversation_id = ? AND user_id = ?", [result.insertId, me.id]);
+    await connection.query(
+      "UPDATE conversations SET disappearing_seconds = COALESCE((SELECT default_disappearing_seconds FROM users WHERE id = ?), 0) WHERE id = ?",
+      [me.id, result.insertId]
+    );
     await connection.commit();
 
     const [rows] = await connection.query("SELECT * FROM conversations WHERE id = ?", [result.insertId]);

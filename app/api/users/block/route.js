@@ -27,10 +27,37 @@ export async function POST(req) {
     );
   }
 
-  // Let the other person's open tabs know immediately, so their chat UI
-  // (input disabled, "you can't message this contact" banner, etc.) updates
-  // live instead of only picking this up on their next page load.
-  emitToUser(targetId, "peer-block-changed", { byUserId: me.id, blocked: !!block });
+  // Blocking is silent: the other person is never told. The only thing sent
+  // to them is a neutral "refresh your chat list" nudge so that their view of
+  // my profile picture / online status updates live (it carries no hint of
+  // why). On unblock, also mark the messages that were held back during the
+  // block as delivered both ways, then nudge both sides to reload them.
+  if (!block) {
+    try {
+      await pool.query(
+        `INSERT IGNORE INTO message_deliveries (message_id, user_id)
+         SELECT m.id, ? FROM messages m
+         JOIN conversations c ON c.id = m.conversation_id AND c.is_group = 0
+         JOIN conversation_participants cp1 ON cp1.conversation_id = c.id AND cp1.user_id = ?
+         JOIN conversation_participants cp2 ON cp2.conversation_id = c.id AND cp2.user_id = ?
+         WHERE m.sender_id = ?`,
+        [me.id, me.id, targetId, targetId]
+      );
+      await pool.query(
+        `INSERT IGNORE INTO message_deliveries (message_id, user_id)
+         SELECT m.id, ? FROM messages m
+         JOIN conversations c ON c.id = m.conversation_id AND c.is_group = 0
+         JOIN conversation_participants cp1 ON cp1.conversation_id = c.id AND cp1.user_id = ?
+         JOIN conversation_participants cp2 ON cp2.conversation_id = c.id AND cp2.user_id = ?
+         WHERE m.sender_id = ?`,
+        [targetId, me.id, targetId, me.id]
+      );
+    } catch (err) {
+      console.error("Failed to mark held-back messages delivered:", err.message);
+    }
+  }
+  emitToUser(targetId, "chats-refresh", {});
+  emitToUser(me.id, "chats-refresh", {});
 
   return Response.json({ ok: true, blocked: !!block });
 }

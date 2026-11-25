@@ -5,11 +5,11 @@ import { X, Search, Users, MessageSquarePlus } from "lucide-react";
 import api from "@/lib/api";
 import Avatar from "./Avatar";
 
-export default function NewChatModal({ onClose, onStartDm, onCreateGroup }) {
+export default function NewChatModal({ onClose, onStartDm, onCreateGroup, initialMode = "list" }) {
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState("list"); // 'list' | 'group'
+  const [mode, setMode] = useState(initialMode); // 'list' | 'group'
   const [groupName, setGroupName] = useState("");
   const [selected, setSelected] = useState([]);
 

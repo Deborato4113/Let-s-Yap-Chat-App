@@ -1,11 +1,17 @@
 import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
 import { ThemeProvider } from "@/lib/ThemeContext";
+import PwaRegister from "@/components/PwaRegister";
 
 export const metadata = {
   title: "Let's Yap",
   description: "A fast, simple real-time chat app.",
+  manifest: "/manifest.webmanifest",
+  icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Let's Yap", statusBarStyle: "default" },
 };
+
+export const viewport = { themeColor: "#00A884" };
 
 // Avoid a light-mode flash before ThemeProvider mounts: read the stored
 // preference synchronously and stamp it onto <html> before first paint.
@@ -27,6 +33,7 @@ export default function RootLayout({ children }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
+        <PwaRegister />
         <AuthProvider>
           <ThemeProvider>{children}</ThemeProvider>
         </AuthProvider>

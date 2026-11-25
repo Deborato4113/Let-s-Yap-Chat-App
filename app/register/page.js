@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
-import { MessageCircle } from "lucide-react";
+import { ArrowLeft, MessageCircle } from "lucide-react";
 import FirebaseAuthButtons from "@/components/FirebaseAuthButtons";
 
 export default function RegisterPage() {
@@ -33,7 +33,14 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex-1 min-h-screen flex items-center justify-center bg-[var(--wa-panel-header)] px-4 py-10">
+    <div className="relative flex-none min-h-screen flex items-center justify-center bg-[var(--wa-panel-header)] px-4 py-10">
+      <Link
+        href="/"
+        className="absolute top-4 left-4 inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-[var(--wa-text-secondary)] hover:bg-[var(--wa-active)] hover:text-[var(--wa-text-primary)]"
+      >
+        <ArrowLeft size={16} />
+        Back to home
+      </Link>
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-6">
           <div className="w-16 h-16 rounded-full bg-[var(--wa-green)] flex items-center justify-center mb-3 shadow-md">

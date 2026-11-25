@@ -1,7 +1,6 @@
 import bcrypt from "bcryptjs";
 import pool from "@/lib/db";
-import { signToken } from "@/lib/jwt";
-import { toPublicUser } from "@/lib/serialize";
+import { finishLogin } from "@/lib/loginFlow";
 
 const AVATAR_COLORS = [
   "#00A884", "#7F66FF", "#FF6B6B", "#4C9AFF", "#FFA94D",
@@ -55,8 +54,7 @@ export async function POST(req) {
     const [rows] = await pool.query("SELECT * FROM users WHERE id = ?", [result.insertId]);
     const user = rows[0];
 
-    const token = signToken({ id: user.id });
-    return Response.json({ token, user: toPublicUser(user) }, { status: 201 });
+    return finishLogin(user, req, 201);
   } catch (err) {
     console.error(err);
     return Response.json({ message: "Registration failed." }, { status: 500 });

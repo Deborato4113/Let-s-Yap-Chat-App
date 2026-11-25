@@ -1,7 +1,8 @@
 "use client";
 
+import { applySpeaker } from "@/lib/prefs";
 import { useEffect, useRef, useState } from "react";
-import { Phone, PhoneOff, Video, Mic, MicOff, VideoOff } from "lucide-react";
+import { Phone, PhoneOff, Video, Mic, MicOff, VideoOff, MonitorUp, MonitorX } from "lucide-react";
 import Avatar from "./Avatar";
 
 function useElapsed(active) {
@@ -25,6 +26,10 @@ export default function CallModal({ call }) {
     peerInfo,
     localStream,
     remoteStream,
+    remoteHasVideo,
+    sharing,
+    screenStream,
+    toggleScreenShare,
     muted,
     videoOff,
     error,
@@ -38,17 +43,20 @@ export default function CallModal({ call }) {
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
-  const remoteAudioRef = useRef(null);
+  const canShare = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia;
   const elapsed = useElapsed(callState === "active");
 
   useEffect(() => {
-    if (localVideoRef.current) localVideoRef.current.srcObject = localStream || null;
-  }, [localStream]);
+    if (localVideoRef.current) localVideoRef.current.srcObject = (sharing ? screenStream : localStream) || null;
+  }, [localStream, sharing, screenStream]);
 
   useEffect(() => {
-    if (callType === "video" && remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream || null;
-    if (callType === "audio" && remoteAudioRef.current) remoteAudioRef.current.srcObject = remoteStream || null;
-  }, [remoteStream, callType]);
+    // One element carries the other person's audio (and video, when there is some)
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStream || null;
+      applySpeaker(remoteVideoRef.current);
+    }
+  }, [remoteStream]);
 
   // Transient toast for a declined/unavailable/failed call - not a modal,
   // shouldn't block the UI.
@@ -67,11 +75,11 @@ export default function CallModal({ call }) {
   }
 
   const isVideo = callType === "video";
+  // Voice calls turn into a picture when the other person shares their screen
+  const showPicture = (isVideo && (callState === "active" || callState === "calling")) || (callState === "active" && (remoteHasVideo || sharing));
 
   return (
     <div className="fixed inset-0 bg-[#111b21] z-50 flex flex-col items-center justify-between text-white py-10">
-      <audio ref={remoteAudioRef} autoPlay />
-
       <div className="flex flex-col items-center gap-3 mt-10">
         <Avatar name={peerInfo?.name} color={peerInfo?.avatarColor} avatarUrl={peerInfo?.avatarUrl} size={112} />
         <p className="text-xl font-medium">{peerInfo?.name}</p>
@@ -97,10 +105,10 @@ export default function CallModal({ call }) {
       */}
       <div
         className={`relative w-full max-w-2xl aspect-video mx-6 rounded-xl overflow-hidden bg-black/40 ${
-          isVideo && (callState === "active" || callState === "calling") ? "" : "hidden"
+          showPicture ? "" : "hidden"
         }`}
       >
-        <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+        <video ref={remoteVideoRef} autoPlay playsInline className={`w-full h-full ${remoteHasVideo && !isVideo ? "object-contain" : "object-cover"}`} />
         <video
           ref={localVideoRef}
           autoPlay
@@ -109,7 +117,7 @@ export default function CallModal({ call }) {
           className="absolute bottom-3 right-3 w-28 h-20 rounded-lg object-cover border-2 border-white/20"
         />
       </div>
-      {!isVideo && <div className="flex-1" />}
+      {!showPicture && <div className="flex-1" />}
 
       <div className="flex items-center gap-6 mb-4">
         {callState === "ringing" ? (
@@ -149,6 +157,16 @@ export default function CallModal({ call }) {
                 title={videoOff ? "Turn camera on" : "Turn camera off"}
               >
                 {videoOff ? <VideoOff size={22} /> : <Video size={22} />}
+              </button>
+            )}
+            {canShare && callState === "active" && (
+              <button
+                onClick={toggleScreenShare}
+                className={`w-14 h-14 rounded-full flex items-center justify-center ${sharing ? "bg-[var(--wa-green)]" : "bg-white/15 hover:bg-white/25"}`}
+                title={sharing ? "Stop sharing" : "Share screen"}
+                aria-label={sharing ? "Stop sharing" : "Share screen"}
+              >
+                {sharing ? <MonitorX size={22} /> : <MonitorUp size={22} />}
               </button>
             )}
             <button

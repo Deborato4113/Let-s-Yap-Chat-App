@@ -1,7 +1,6 @@
 import bcrypt from "bcryptjs";
 import pool from "@/lib/db";
-import { signToken } from "@/lib/jwt";
-import { toPublicUser } from "@/lib/serialize";
+import { finishLogin } from "@/lib/loginFlow";
 
 export async function POST(req) {
   try {
@@ -31,8 +30,7 @@ export async function POST(req) {
     await pool.query("UPDATE users SET status = 'online', last_seen = NOW(3) WHERE id = ?", [user.id]);
     user.status = "online";
 
-    const token = signToken({ id: user.id });
-    return Response.json({ token, user: toPublicUser(user) });
+    return finishLogin(user, req);
   } catch (err) {
     console.error(err);
     return Response.json({ message: "Login failed." }, { status: 500 });
