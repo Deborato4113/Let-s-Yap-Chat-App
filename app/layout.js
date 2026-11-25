@@ -11,7 +11,13 @@ export const metadata = {
   appleWebApp: { capable: true, title: "Let's Yap", statusBarStyle: "default" },
 };
 
-export const viewport = { themeColor: "#00A884" };
+export const viewport = {
+  themeColor: "#00A884",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content"
+};
 
 // Avoid a light-mode flash before ThemeProvider mounts: read the stored
 // preference synchronously and stamp it onto <html> before first paint.

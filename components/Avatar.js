@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { initials } from "@/lib/utils";
 import { Users, Sparkles } from "lucide-react";
 
@@ -13,6 +14,11 @@ export default function Avatar({
   online = false,
   showStatus = false
 }) {
+  // A photo that fails to load (e.g. a Google profile picture that rate-limits
+  // or blocks referrers) falls back to the coloured initials instead of a
+  // broken image with alt text.
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [avatarUrl]);
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       {isBot ? (
@@ -22,11 +28,13 @@ export default function Avatar({
         >
           <Sparkles size={size * 0.5} className="text-white" fill="white" />
         </div>
-      ) : avatarUrl ? (
+      ) : avatarUrl && !failed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={avatarUrl}
-          alt={name || "avatar"}
+          alt=""
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
           className="w-full h-full rounded-full object-cover select-none"
         />
       ) : (

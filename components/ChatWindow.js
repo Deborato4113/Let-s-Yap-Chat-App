@@ -1390,7 +1390,7 @@ export default function ChatWindow({
             </div>
           )}
 
-          <form onSubmit={handleSend} className="px-4 py-2.5 flex items-center gap-2 relative">
+          <form onSubmit={handleSend} className="px-2 md:px-4 pt-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex items-center gap-0.5 md:gap-2 relative">
             {mention && mentionMatches.length > 0 && (
               <div className="absolute bottom-full left-4 right-4 mb-1 bg-[var(--wa-panel)] shadow-lg rounded-lg py-1 z-20 max-h-56 overflow-y-auto">
                 {mentionMatches.map((p, i) => (
@@ -1495,7 +1495,7 @@ export default function ChatWindow({
               ref={emojiButtonRef}
               type="button"
               onClick={() => setShowEmoji((v) => !v)}
-              className="p-2 text-[var(--wa-icon)] hover:text-[var(--wa-text-primary)]"
+              className="p-1.5 md:p-2 shrink-0 text-[var(--wa-icon)] hover:text-[var(--wa-text-primary)]"
             >
               <Smile size={22} />
             </button>
@@ -1505,7 +1505,7 @@ export default function ChatWindow({
                 setShowAttachMenu((v) => !v);
                 setShowEmoji(false);
               }}
-              className="p-2 text-[var(--wa-icon)] hover:text-[var(--wa-text-primary)] rotate-45"
+              className="p-1.5 md:p-2 shrink-0 text-[var(--wa-icon)] hover:text-[var(--wa-text-primary)] rotate-45"
             >
               <Paperclip size={22} />
             </button>
@@ -1522,14 +1522,14 @@ export default function ChatWindow({
                 if (conversation.isGroup && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) handleTyping(e.target.value);
               }}
               placeholder={editing ? "Edit message" : conversation.isGroup ? "Type a message, @ to mention" : "Type a message"}
-              className="flex-1 bg-[var(--wa-panel)] rounded-lg px-4 py-2.5 text-sm outline-none text-[var(--wa-text-primary)]"
+              className="flex-1 min-w-0 bg-[var(--wa-panel)] rounded-lg px-3 md:px-4 py-2.5 text-base md:text-sm outline-none text-[var(--wa-text-primary)]"
             />
             {!editing && !isBotChat && (
               <button
                 type="button"
                 onClick={() => setShowSchedule(true)}
                 title="Schedule message"
-                className="p-2 text-[var(--wa-icon)] hover:text-[var(--wa-text-primary)]"
+                className="p-1.5 md:p-2 shrink-0 text-[var(--wa-icon)] hover:text-[var(--wa-text-primary)]"
               >
                 <Clock size={20} />
               </button>
@@ -1537,7 +1537,7 @@ export default function ChatWindow({
             {text.trim() ? (
               <button
                 type="submit"
-                className="p-2.5 rounded-full bg-[var(--wa-green)] text-white hover:bg-[var(--wa-green-dark)]"
+                className="p-2.5 shrink-0 rounded-full bg-[var(--wa-green)] text-white hover:bg-[var(--wa-green-dark)]"
               >
                 <Send size={18} />
               </button>
@@ -1546,7 +1546,7 @@ export default function ChatWindow({
                 type="button"
                 onClick={recorder.start}
                 title="Record a voice message"
-                className="p-2.5 rounded-full bg-[var(--wa-green)] text-white hover:bg-[var(--wa-green-dark)]"
+                className="p-2.5 shrink-0 rounded-full bg-[var(--wa-green)] text-white hover:bg-[var(--wa-green-dark)]"
               >
                 <Mic size={18} />
               </button>

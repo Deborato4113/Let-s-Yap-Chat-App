@@ -255,7 +255,7 @@ export default function MessageBubble({
       )}
 
       <div
-        className={`relative max-w-[65%] ${message.type === "poll" ? "min-w-[260px]" : "min-w-[80px]"} rounded-lg ${
+        className={`relative max-w-[85%] md:max-w-[65%] ${message.type === "poll" ? "min-w-[260px]" : "min-w-[80px]"} rounded-lg ${
           emojiOnly
             ? "bg-transparent px-2 pt-2 pb-1"
             : `px-2.5 pt-1.5 pb-1.5 shadow-sm ${
@@ -379,7 +379,7 @@ export default function MessageBubble({
           !message.deletedForEveryone &&
           message.type !== "poll" &&
           message.text && (
-            <p className={`text-sm text-[var(--wa-text-primary)] whitespace-pre-wrap break-words pr-14 ${isMedia ? "mt-1" : ""}`}>
+            <p className={`text-sm text-[var(--wa-text-primary)] whitespace-pre-wrap break-words [overflow-wrap:anywhere] pr-14 ${isMedia ? "mt-1" : ""}`}>
               <FlaggedText
                 message={message}
                 isOwn={isOwn}
@@ -411,14 +411,14 @@ export default function MessageBubble({
         )}
 
         {autoTranslation && !ai.translation && !message.deletedForEveryone && (
-          <div className="mt-1 mb-1 border-t border-black/10 pt-1 pr-14 text-sm text-[var(--wa-text-primary)] whitespace-pre-wrap break-words" data-testid="auto-translation">
+          <div className="mt-1 mb-1 border-t border-black/10 pt-1 pr-14 text-sm text-[var(--wa-text-primary)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]" data-testid="auto-translation">
             <p className="text-[10px] font-medium text-[var(--wa-green)]">Auto-translated</p>
             <p>{autoTranslation}</p>
           </div>
         )}
 
         {(ai.translation || ai.transcript || ai.imageResult || ai.busy || ai.error) && !message.deletedForEveryone && (
-          <div className="mt-1 mb-1 border-t border-black/10 pt-1 pr-14 text-sm text-[var(--wa-text-primary)] whitespace-pre-wrap break-words" data-testid="ai-extra">
+          <div className="mt-1 mb-1 border-t border-black/10 pt-1 pr-14 text-sm text-[var(--wa-text-primary)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]" data-testid="ai-extra">
             {ai.busy && <p className="text-xs italic text-[var(--wa-text-secondary)]">{ai.busy === "translate" ? "Translating…" : ai.busy === "ocr" ? "Reading the text…" : ai.busy === "describe" ? "Looking at the photo…" : "Converting to text…"}</p>}
             {ai.error && <p className="text-xs text-[var(--wa-danger)]">{ai.error}</p>}
             {ai.translation && (

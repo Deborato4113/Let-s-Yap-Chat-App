@@ -914,7 +914,7 @@ export default function ChatPage() {
   const detailOpenOnMobile = view === "settings" ? !!settingsSection : showMobileChat;
 
   return (
-    <div className="flex-1 flex h-screen overflow-hidden">
+    <div className="flex-1 flex h-screen h-dvh overflow-hidden w-full max-w-full">
       <div
         className={`${detailOpenOnMobile ? "hidden md:flex" : "flex"} flex-col-reverse md:flex-row w-full md:w-auto shrink-0 h-full`}
       >
@@ -969,7 +969,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <div className={`flex-1 ${detailOpenOnMobile ? "block" : "hidden md:block"}`}>
+      <div className={`flex-1 min-w-0 w-full overflow-hidden ${detailOpenOnMobile ? "block" : "hidden md:block"}`}>
         {view === "settings" ? (
           <SettingsDetail
             section={settingsSection}
