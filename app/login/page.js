@@ -24,7 +24,7 @@ export default function LoginPage() {
     try {
       const res = await login(identifier, password);
       if (res?.twoFactor) setChallenge(res.challenge);
-      else router.push("/chat");
+      else router.replace("/chat");
     } catch (err) {
       setError(err?.response?.data?.message || "Login failed. Please try again.");
     } finally {
@@ -52,7 +52,7 @@ export default function LoginPage() {
 
         {challenge ? (
           <div className="bg-[var(--wa-panel)] rounded-xl shadow-sm p-8">
-            <TwoFactorStep challenge={challenge} onDone={() => router.push("/chat")} onCancel={() => { setChallenge(null); setPassword(""); }} />
+            <TwoFactorStep challenge={challenge} onDone={() => router.replace("/chat")} onCancel={() => { setChallenge(null); setPassword(""); }} />
           </div>
         ) : (
         <form onSubmit={handleSubmit} className="bg-[var(--wa-panel)] rounded-xl shadow-sm p-8 space-y-4">

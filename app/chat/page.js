@@ -913,6 +913,35 @@ export default function ChatPage() {
   // phones show either the list or the open page (chat / settings page), never both
   const detailOpenOnMobile = view === "settings" ? !!settingsSection : showMobileChat;
 
+  // Phone back button / swipe-back: opening a chat (or a settings page) adds a history entry, so "back"
+  // closes it and returns to the list instead of leaving the app or going to the login page.
+  const detailRef = useRef(false);
+  useEffect(() => {
+    // a refresh can leave our marker on the current entry; clear it once
+    if (window.history.state?.yapDetail) window.history.replaceState({ ...window.history.state, yapDetail: false }, "");
+  }, []);
+  useEffect(() => {
+    const was = detailRef.current;
+    detailRef.current = detailOpenOnMobile;
+    if (typeof window === "undefined" || window.innerWidth >= 768) return;
+    if (detailOpenOnMobile && !window.history.state?.yapDetail) {
+      // keep Next.js' own history state so its router isn't confused by the extra entry
+      window.history.pushState({ ...(window.history.state || {}), yapDetail: true }, "");
+    } else if (was && !detailOpenOnMobile && window.history.state?.yapDetail) {
+      window.history.back(); // closed with the on-screen arrow: drop our extra entry
+    }
+  }, [detailOpenOnMobile]);
+  useEffect(() => {
+    function onPop() {
+      if (detailRef.current) {
+        setShowMobileChat(false);
+        setSettingsSection(null);
+      }
+    }
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   return (
     <div className="flex-1 flex h-screen h-dvh overflow-hidden w-full max-w-full">
       <div

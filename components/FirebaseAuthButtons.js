@@ -30,7 +30,7 @@ export default function FirebaseAuthButtons() {
     const { data } = await api.post("/auth/firebase", { idToken });
     const res = loginWithFirebase(data);
     if (res?.twoFactor) setChallenge(res.challenge);
-    else router.push("/chat");
+    else router.replace("/chat");
   }
 
   async function handleGoogle() {
@@ -78,7 +78,7 @@ export default function FirebaseAuthButtons() {
   if (challenge) {
     return (
       <div className="mt-2">
-        <TwoFactorStep challenge={challenge} onDone={() => router.push("/chat")} onCancel={() => setChallenge(null)} />
+        <TwoFactorStep challenge={challenge} onDone={() => router.replace("/chat")} onCancel={() => setChallenge(null)} />
       </div>
     );
   }

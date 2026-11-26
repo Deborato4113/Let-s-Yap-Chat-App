@@ -24,7 +24,7 @@ export default function RegisterPage() {
     setBusy(true);
     try {
       await register(form);
-      router.push("/chat");
+      router.replace("/chat");
     } catch (err) {
       setError(err?.response?.data?.message || "Registration failed. Please try again.");
     } finally {
